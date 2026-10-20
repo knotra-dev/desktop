@@ -71,7 +71,7 @@ export async function browserPackage(files: File[], entrypoint: string): Promise
 }
 
 export async function openProjectDocs(): Promise<void> {
-  const url = 'https://github.com/michael-bill/knotra';
+  const url = 'https://github.com/knotra-dev/desktop';
   if (desktop) {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
     await openUrl(url);

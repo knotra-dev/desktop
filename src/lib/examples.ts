@@ -1,5 +1,5 @@
 import { parseDocument, stringify } from 'yaml';
-import localSource from '../../../examples/local/pipeline.yaml?raw';
+import localSource from '../../vendor/engine/examples/local/pipeline.yaml?raw';
 import { base64, textBytes } from './bytes';
 import type { PackageFile, Pipeline, Workspace } from './types';
 import { translate, type Locale, type MessageKey } from './i18n';
@@ -133,12 +133,12 @@ export interface Example {
   files: PackageFile[];
 }
 
-const rawFiles = import.meta.glob('../../../contracts/v1/fixtures/positive/**/*', {
+const rawFiles = import.meta.glob('../../vendor/engine/contracts/v1/fixtures/positive/**/*', {
   eager: true,
   query: '?raw',
   import: 'default',
 }) as Record<string, string>;
-const starterFiles = import.meta.glob('../../../examples/starter/*/**/*', {
+const starterFiles = import.meta.glob('../../vendor/engine/examples/starter/*/**/*', {
   eager: true,
   query: '?raw',
   import: 'default',
@@ -246,7 +246,7 @@ export const examples: Example[] = [
     files: [],
   },
   ...starters.map(({ directory, ...starter }): Example => {
-    const prefix = `../../../examples/starter/${directory ?? starter.id}/`;
+    const prefix = `../../vendor/engine/examples/starter/${directory ?? starter.id}/`;
     const entrypoint = starter.entrypoint ?? 'pipeline.yaml';
     return {
       ...starter,
@@ -257,7 +257,7 @@ export const examples: Example[] = [
     };
   }),
   ...Object.entries(fixtureTitles).map(([id, [title, description]]) => {
-    const prefix = `../../../contracts/v1/fixtures/positive/${id}/`;
+    const prefix = `../../vendor/engine/contracts/v1/fixtures/positive/${id}/`;
     return {
       id,
       titleKey: title,

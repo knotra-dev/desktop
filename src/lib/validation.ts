@@ -1,6 +1,6 @@
 import { Validator, type Schema } from '@cfworker/json-schema';
 import { LineCounter, isAlias, isMap, isScalar, isSeq, parseAllDocuments, visit } from 'yaml';
-import contract from '../../../schemas/knotra-v1.schema.json';
+import contract from '../../vendor/engine/schemas/knotra-v1.schema.json';
 import { decodeText, textBytes, unbase64 } from './bytes';
 import { graphOrder, nodePorts, nodeReferences, references } from './graph';
 import {

@@ -531,7 +531,7 @@ test('folder and loose YAML imports work and reject invalid selections', async (
   await page.getByRole('button', { name: 'Open package', exact: true }).click();
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: /^Select package folder/ }).click();
-  await (await chooser).setFiles(resolve('../contracts/v1/fixtures/positive/llm'));
+  await (await chooser).setFiles(resolve('vendor/engine/contracts/v1/fixtures/positive/llm'));
   await expect(page.getByRole('heading', { name: 'llm-contract', exact: true })).toBeVisible();
   await expect.poll(async () => (await current(page)).files.length).toBe(2);
   await page.getByRole('button', { name: 'Open package', exact: true }).click();
@@ -539,7 +539,7 @@ test('folder and loose YAML imports work and reject invalid selections', async (
   await page.getByRole('button', { name: /^Select files or ZIP/ }).click();
   await (
     await looseChooser
-  ).setFiles(resolve('../contracts/v1/fixtures/positive/human/pipeline.yaml'));
+  ).setFiles(resolve('vendor/engine/contracts/v1/fixtures/positive/human/pipeline.yaml'));
   await expect(page.getByRole('heading', { name: 'basic-human', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open package', exact: true }).click();
   await page.getByLabel('Import pipeline package', { exact: true }).setInputFiles({
@@ -555,13 +555,13 @@ test('ZIP import selects the only Pipeline after profile and schema YAML files',
   page,
 }) => {
   const pipeline = Buffer.from(
-    readFileSync('../contracts/v1/fixtures/positive/llm/pipeline.yaml', 'utf8').replaceAll(
-      'reply.schema.json',
-      'reply.schema.yaml',
-    ),
+    readFileSync(
+      'vendor/engine/contracts/v1/fixtures/positive/llm/pipeline.yaml',
+      'utf8',
+    ).replaceAll('reply.schema.json', 'reply.schema.yaml'),
   );
-  const prompt = readFileSync('../contracts/v1/fixtures/positive/llm/prompt.txt');
-  const schema = readFileSync('../contracts/v1/fixtures/positive/llm/reply.schema.json');
+  const prompt = readFileSync('vendor/engine/contracts/v1/fixtures/positive/llm/prompt.txt');
+  const schema = readFileSync('vendor/engine/contracts/v1/fixtures/positive/llm/reply.schema.json');
   const contents = {
     'profile.yaml': Buffer.from(
       'apiVersion: knotra/v1\nkind: EngineProfile\nmetadata: {name: local}\nspec: {}\n',
@@ -608,7 +608,7 @@ test('ZIP import preserves an entrypoint BOM and rejects duplicate paths before 
 }) => {
   const pipeline = Buffer.concat([
     Buffer.from([0xef, 0xbb, 0xbf]),
-    readFileSync('../contracts/v1/fixtures/positive/human/pipeline.yaml'),
+    readFileSync('vendor/engine/contracts/v1/fixtures/positive/human/pipeline.yaml'),
   ]);
   await page.getByRole('button', { name: 'Open package', exact: true }).click();
   await page.getByLabel('Import pipeline package', { exact: true }).setInputFiles({
@@ -874,7 +874,7 @@ test('documentation opens the project repository in a separate browser tab', asy
   const opened = context.waitForEvent('page');
   await page.getByRole('button', { name: 'Project documentation', exact: true }).click();
   const tab = await opened;
-  await tab.waitForURL('https://github.com/michael-bill/knotra', { waitUntil: 'commit' });
+  await tab.waitForURL('https://github.com/knotra-dev/desktop', { waitUntil: 'commit' });
   await expect(
     page.getByRole('heading', { name: 'Workspace settings', exact: true }),
   ).toBeVisible();

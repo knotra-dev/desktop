@@ -93,7 +93,7 @@ test('unreadable local data remains downloadable and a reviewed legacy backup re
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download original data' }).click();
   expect(readFileSync((await (await downloaded).path())!, 'utf8')).toBe(raw);
-  const source = readFileSync('../examples/starter/hello/pipeline.yaml', 'utf8');
+  const source = readFileSync('vendor/engine/examples/starter/hello/pipeline.yaml', 'utf8');
   const backup = {
     version: 1,
     workspaces: [

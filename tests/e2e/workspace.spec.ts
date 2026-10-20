@@ -145,7 +145,7 @@ test('complete ZIP package import preserves child contracts and every exported b
   page,
 }) => {
   await open(page);
-  const root = resolve('../contracts/v1/fixtures/positive/subpipeline');
+  const root = resolve('vendor/engine/contracts/v1/fixtures/positive/subpipeline');
   const contents = Object.fromEntries(
     readdirSync(root, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile())

@@ -10,7 +10,7 @@ import type { EngineRequest, EngineRun } from '../../src/lib/engine/types';
 import type { EngineController } from '../../src/lib/engine/useEngine';
 import { validatePipeline } from '../../src/lib/validation';
 import type { Workspace } from '../../src/lib/types';
-import foreachSource from '../../../contracts/v1/fixtures/positive/foreach/pipeline.yaml?raw';
+import foreachSource from '../../vendor/engine/contracts/v1/fixtures/positive/foreach/pipeline.yaml?raw';
 import '../../src/styles.css';
 
 const params = new URLSearchParams(location.search);

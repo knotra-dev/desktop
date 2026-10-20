@@ -1,5 +1,5 @@
 import { Validator } from '@cfworker/json-schema';
-import spec from '../../../../docs/api/desktop-v1.openapi.json';
+import spec from '../../../vendor/engine/docs/api/desktop-v1.openapi.json';
 import { EngineError } from './error';
 
 const validators = new Map<string, Validator>();

@@ -11,7 +11,8 @@ import {
 import { graphOrder, nodePorts } from '../src/lib/graph';
 import { base64, textBytes } from '../src/lib/bytes';
 
-const fixture = (path: string) => readFileSync(resolve('../contracts/v1/fixtures', path), 'utf8');
+const fixture = (path: string) =>
+  readFileSync(resolve('vendor/engine/contracts/v1/fixtures', path), 'utf8');
 const errors = (source: string) =>
   validatePipeline(source).diagnostics.filter((d) => d.severity === 'error');
 

@@ -7,9 +7,10 @@ use serde_json::Value;
 pub(super) fn check_read_shape(call: &Call, value: &Value) -> Result<()> {
     static SCHEMAS: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     let schemas = SCHEMAS.get_or_init(|| {
-        let spec: Value =
-            serde_json::from_str(include_str!("../../../../docs/api/desktop-v1.openapi.json"))
-                .expect("bundled desktop contract is valid JSON");
+        let spec: Value = serde_json::from_str(include_str!(
+            "../../../vendor/engine/docs/api/desktop-v1.openapi.json"
+        ))
+        .expect("bundled desktop contract is valid JSON");
         spec["components"]["schemas"].clone()
     });
     let model = match call {

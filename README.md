@@ -7,11 +7,10 @@ desktop app does not launch the engine.
 
 ## Development
 
-Use Bun 1.3.10, Rust from `../rust-toolchain.toml` and
+Use Bun 1.3.10, Rust from `rust-toolchain.toml` and
 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/):
 
 ```sh
-cd app
 bun install --frozen-lockfile
 bun run desktop:dev
 ```
@@ -21,13 +20,15 @@ development; they share a Vite port.
 
 ## Connect and use
 
-Start an engine using [quickstart or the running guide](../docs/running.md), then save its address
-in Settings (`http://127.0.0.1:8787` by default). Browser preview requires the engine flag
-`--cors-origin http://127.0.0.1:1420`; remote engines require HTTPS and a token. Model credentials
-stay in engine profiles, separate from exported drafts.
+Start an engine using
+[quickstart or the running guide](https://github.com/knotra-dev/engine/blob/main/docs/running.md),
+then save its address in Settings (`http://127.0.0.1:8787` by default). Browser preview requires the
+engine flag `--cors-origin http://127.0.0.1:1420`; remote engines require HTTPS and a token. Model
+credentials stay in engine profiles, separate from exported drafts.
 
-- **Pipelines:** edit YAML/graphs or copy one of the five [starters](../examples/starter/README.md).
-  Select profile `local` to validate and run. Accepted packages are immutable.
+- **Pipelines:** edit YAML/graphs or copy one of the five
+  [starters](vendor/engine/examples/starter/README.md). Select profile `local` to validate and run.
+  Accepted packages are immutable.
 - **Runs:** inspect nested graphs, inputs/outputs, streamed responses, agent/tool activity, timings
   and artifacts. Rewind shows saved history without repeating execution; compare highlights changes
   between runs. Truncated previews and missing observations are marked; hidden reasoning is
@@ -45,11 +46,9 @@ language; the saved preference is included in workspace backups. Interface text 
 translated, while YAML, prompts, engine messages, model output and artifacts retain their text.
 Starter text is localized when a draft is created and preserved thereafter. Catalogs are
 [en.json](src/locales/en.json) and [ru.json](src/locales/ru.json); see
-[translation contribution rules](../CONTRIBUTING.md#interface-translations).
+[translation contribution rules](CONTRIBUTING.md#interface-translations).
 
 ## Checks and build
-
-From `app/`:
 
 ```sh
 bun run format:check
@@ -71,24 +70,15 @@ KNOTRA_E2E_ENDPOINT=http://127.0.0.1:8787 \
   cargo test --locked --manifest-path src-tauri/Cargo.toml real_engine -- --ignored
 ```
 
-For literal client acceptance against River, prepare Bun/Cargo, PostgreSQL, Docker/helper and
-Playwright Chromium. `KNOTRA_CHROMIUM` can select an existing Chrome executable. From the repository
-root:
+For literal browser and native acceptance against River/PostgreSQL and isolated Docker tools, use
+`make integration` in [knotra-dev/dev](https://github.com/knotra-dev/dev). Only inference uses a
+fixed HTTP provider. This is separate from live-model acceptance.
 
-```sh
-KNOTRA_TEST_DESKTOP=1 \
-  KNOTRA_TEST_DATABASE_URL='postgres://knotra:knotra-development@127.0.0.1:25432/knotra?sslmode=disable' \
-  KNOTRA_TEST_HELPER="$PWD/.knotra/bin/sandbox-helper" \
-  go test -mod=readonly -race -count=1 -timeout=15m ./internal/integration \
-  -run '^TestDesktopLiteralClients$' -v
-```
-
-Only inference uses a fixed HTTP provider; API/SSE, PostgreSQL, Docker, file tools and artifacts
-remain real. This does not replace live-model acceptance. Failed evidence stays under
-`.knotra/integration-work/desktop-*`. The desktop workflow runs this comparison on pull requests,
-pushes to `main` and manual runs. See [verification](../docs/verification.md) for check boundaries.
+The committed `vendor/engine/` snapshot contains the schema, OpenAPI document, fixtures and starters
+from the engine commit recorded in its manifest. See [CONTRIBUTING](CONTRIBUTING.md) to update it.
+Desktop CI checks the frontend, browser and native clients; the dev repository checks a pinned pair.
 
 On macOS, `bun run desktop:build -- --bundles app` creates
 `src-tauri/target/release/bundle/macos/Knotra.app`. Signing/notarization are not configured;
 platform builds require their native toolchain. Development rules are in
-[CONTRIBUTING](../CONTRIBUTING.md).
+[CONTRIBUTING](CONTRIBUTING.md).
