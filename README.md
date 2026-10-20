@@ -1,9 +1,10 @@
 # Knotra desktop
 
 Tauri/React client for editing pipelines, inspecting runs, answering human requests and managing
-artifacts through the [engine API](../docs/api/desktop-v1.md). Rust handles native HTTP/SSE, SQLite,
-package dialogs and verified downloads. Browser preview uses the same API with browser storage. The
-desktop app does not launch the engine.
+artifacts through the
+[engine API](https://github.com/knotra-dev/engine/blob/main/docs/api/desktop-v1.md). Rust handles
+native HTTP/SSE, SQLite, package dialogs and verified downloads. Browser preview uses the same API
+with browser storage. The desktop app does not launch the engine.
 
 ## Development
 

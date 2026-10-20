@@ -1,4 +1,6 @@
 import importlib.util
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -12,6 +14,17 @@ spec.loader.exec_module(sync)
 
 
 class SnapshotTest(unittest.TestCase):
+    def test_committed_snapshot_matches_manifest(self):
+        destination = Path(__file__).resolve().parents[1] / "vendor/engine"
+        manifest = json.loads((destination / "manifest.json").read_text())
+        self.assertEqual(manifest["repository"], sync.SOURCE)
+        actual = {
+            str(p.relative_to(destination)): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in destination.rglob("*")
+            if p.is_file() and p != destination / "manifest.json"
+        }
+        self.assertEqual(actual, manifest["sha256"])
+
     def test_snapshot_uses_committed_bytes_and_detects_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Path(directory)
