@@ -22,13 +22,10 @@ jobs:
         with:
           persist-credentials: false
       - run: npm install --global bun@1.3.10
-      - run: bun install --frozen-lockfile
-      - run: python3 -m unittest discover -s scripts -v
-      - run: bun run check
-      - run: bun run test
-      - run: bun run build
+      - run: make install
+      - run: make check
       - run: bunx playwright install --with-deps chromium
-      - run: bun run test:e2e
+      - run: make e2e
 
   native:
     runs-on: macos-latest
@@ -38,5 +35,4 @@ jobs:
         with:
           persist-credentials: false
       - run: rustup show
-      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - run: make native-check

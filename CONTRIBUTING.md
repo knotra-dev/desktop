@@ -5,13 +5,46 @@ Use Bun 1.3.10 and the Rust version in `rust-toolchain.toml`. Run the checks in
 [knotra-dev/engine](https://github.com/knotra-dev/engine); use
 [knotra-dev/dev](https://github.com/knotra-dev/dev) for paired changes and real client acceptance.
 
-Run `bun run check` before submitting changes. Biome enforces formatting, import organization and
-React lint rules; `bun run format` applies formatting. Keep lint suppressions narrow and explain why
-the rule does not apply.
+Run `make check` before submitting changes. It checks Biome formatting, imports and React lint rules,
+tests the contract snapshot and frontend, and builds the frontend. `make format` formats frontend
+code and Rust. Keep lint suppressions narrow and explain why the rule does not apply. Run `make help`
+for the full command list; package scripts remain available for Tauri and Playwright.
 
 Keep protocol values, errors, validation, credential handling and accessibility intact. The engine
 owns model credentials and execution. Desktop owns authoring and observation. Update both clients
 and their tests when changing the HTTP/SSE contract.
+
+## Native and browser checks
+
+```sh
+make native-check
+make e2e-install
+make e2e
+```
+
+The default browser tests use a contract fixture and start the preview server automatically.
+`make e2e-install` downloads Chromium; checks never install browsers implicitly. Native checks need
+the platform's Tauri prerequisites. `make desktop-build` builds the native app and platform bundles;
+Tauri also builds the frontend, so a separate `make build` is unnecessary.
+
+On macOS, `bun run desktop:build -- --bundles app` builds only
+`src-tauri/target/release/bundle/macos/Knotra.app`. Signing/notarization are not configured.
+
+Real-engine acceptance needs a development engine with the bundled `local` profile and preview CORS
+enabled. These tests create definitions, runs and artifacts:
+
+```sh
+KNOTRA_E2E_ENDPOINT=http://127.0.0.1:8787 make e2e
+KNOTRA_E2E_ENDPOINT=http://127.0.0.1:8787 \
+  cargo test --locked --manifest-path src-tauri/Cargo.toml real_engine -- --ignored
+```
+
+For browser and native acceptance against River/PostgreSQL and isolated Docker tools, use
+`make integration` in [knotra-dev/dev](https://github.com/knotra-dev/dev). Only inference uses a fixed
+HTTP provider; live-model acceptance is separate. Desktop CI uses `make check`, `make e2e` and
+`make native-check`; the dev repository checks a pinned engine/desktop pair.
+
+## Engine contract snapshot
 
 Contract assets are committed in `vendor/engine/`. Update them from an explicit engine commit:
 
@@ -25,6 +58,12 @@ edit the snapshot by hand; change the canonical files in engine first. In a pair
 engine, sync its commit here, then update both revisions in the dev lock file.
 
 ## Interface translations
+
+Settings → Language switches English/Russian. The initial choice follows the browser/webview
+language; saved preferences are included in workspace backups. Interface text and formatting are
+translated, while YAML, prompts, engine messages, model output and artifacts retain their text.
+Starter text is localized when a draft is created and preserved thereafter. Starter upgrades preserve
+edited drafts and execution history.
 
 The frontend keeps English and Russian interface text in `src/locales/en.json` and
 `src/locales/ru.json`. Add the same stable semantic key to both catalogs, then render it with
