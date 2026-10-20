@@ -1,4 +1,4 @@
-@layer theme, vendor, base, components, utilities;
+@layer theme, reset, vendor, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "@xyflow/react/dist/style.css" layer(vendor);
 @import "./theme.css";
@@ -17,3 +17,14 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 @source "../";
 @source "../../tests/fixtures";
+
+/* Tailwind side borders need zero-width defaults without overriding vendor borders. */
+@layer reset {
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-width: 0;
+  }
+}
