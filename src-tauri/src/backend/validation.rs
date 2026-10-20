@@ -35,6 +35,19 @@ pub(super) fn check_read_shape(call: &Call, value: &Value) -> Result<()> {
             Some(("Artifact", &value["artifact"]))
         }
         Call::Runs { .. } => Some(("RunPage", value)),
+        Call::Instances { .. } => {
+            if !value["items"].as_array().is_some_and(|items| {
+                items
+                    .iter()
+                    .all(|item| read_shape(&schemas["Instance"], item, schemas))
+            }) {
+                return Err(Error::new(
+                    "protocol",
+                    "Engine returned an invalid instance page.",
+                ));
+            }
+            None
+        }
         Call::Requests { .. } => Some(("HumanRequestPage", value)),
         Call::Artifacts { .. } => Some(("ArtifactPage", value)),
         Call::Definitions | Call::Profiles | Call::Resources => {
@@ -61,6 +74,22 @@ pub(super) fn check_read_shape(call: &Call, value: &Value) -> Result<()> {
         return Err(Error::new(
             "protocol",
             "Engine returned an incompatible read model. The last valid cache is preserved.",
+        ));
+    }
+    let valid_cursor = |run: &Value| {
+        run.get("instancesNextCursor")
+            .is_none_or(|cursor| cursor.as_str().is_some_and(|cursor| !cursor.is_empty()))
+    };
+    if match call {
+        Call::Run { .. } => !valid_cursor(&value["run"]),
+        Call::Runs { .. } => value["items"]
+            .as_array()
+            .is_some_and(|runs| runs.iter().any(|run| !valid_cursor(run))),
+        _ => false,
+    } {
+        return Err(Error::new(
+            "protocol",
+            "Invalid instance pagination cursor.",
         ));
     }
     Ok(())

@@ -1,0 +1,211 @@
+.brand img {
+  width: 34px;
+  height: 34px;
+}
+.brand > span {
+  font-size: 25px;
+  font-weight: 600;
+  letter-spacing: -1px;
+}
+.brand > small {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  margin-left: auto;
+  padding: 4px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+}
+.sidebar-search kbd {
+  margin-left: auto;
+  font-size: 9px;
+  padding: 3px 4px;
+  border-color: var(--border-strong);
+}
+.sidebar-search:hover {
+  color: var(--accent);
+}
+.app-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.app-sidebar nav button,
+.sidebar-bottom > button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--accent);
+  text-align: left;
+}
+.app-sidebar nav button:hover,
+.sidebar-bottom > button:hover {
+  background: rgb(var(--overlay-rgb) / 0.02);
+  color: var(--accent);
+}
+.app-sidebar nav button.active,
+.sidebar-bottom > button.active {
+  background: linear-gradient(90deg, rgb(var(--accent-rgb) / 0.11), rgb(var(--accent-rgb) / 0.039));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px #a1dec414;
+}
+.sidebar-pipelines button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  font-size: 11px;
+  text-align: left;
+  width: 100%;
+  color: var(--accent);
+  border-radius: 8px;
+}
+.sidebar-pipelines button > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-pipelines button.selected,
+.sidebar-pipelines button:hover {
+  color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.027);
+}
+.sidebar-pipelines .unsaved-dot {
+  width: 4px;
+  height: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.sidebar-create:hover {
+  border-color: var(--border-strong);
+  background: rgb(var(--accent-rgb) / 0.027);
+}
+.sidebar-bottom > button {
+  width: 100%;
+}
+.sidebar-environment small {
+  display: block;
+  color: var(--accent);
+  font-size: 9px;
+  margin-top: 5px;
+}
+.workspace-location strong {
+  font-weight: 450;
+  color: var(--accent);
+}
+.header-actions .button {
+  min-height: 31px;
+  font-size: 10px;
+  padding: 7px 12px;
+}
+.compact .app-sidebar {
+  width: 74px;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.compact .brand {
+  padding-left: 10px;
+  padding-right: 0;
+}
+.compact .brand > span,
+.compact .brand > small,
+.compact .sidebar-search > span,
+.compact .sidebar-search kbd,
+.compact .app-sidebar nav button > span,
+.compact .sidebar-section,
+.compact .sidebar-pipelines,
+.compact .sidebar-create,
+.compact .sidebar-bottom > button > span,
+.compact .sidebar-environment {
+  display: none;
+}
+.compact .app-sidebar nav button,
+.compact .sidebar-bottom > button {
+  justify-content: center;
+}
+.compact .sidebar-search {
+  padding-left: 17px;
+}
+.compact .nav-alert {
+  position: absolute;
+  margin: 0 0 20px 22px;
+}
+
+.modal .notice {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.sidebar-brand-row .brand {
+  width: auto;
+  padding: 0;
+}
+.nav-toggle:hover {
+  color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.043);
+}
+.compact .sidebar-brand-row {
+  flex-direction: column;
+  gap: 15px;
+  padding: 0 0 16px;
+}
+.compact .sidebar-brand-row .brand {
+  padding: 0;
+}
+.workspace-title h1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-title .heading-version {
+  flex-shrink: 0;
+}
+.flow-card .node-icon {
+  width: 29px;
+  height: 29px;
+  border-radius: 8px;
+}
+.flow-card > p.node-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--accent);
+  min-height: 18px;
+}
+.node-summary .node-state {
+  margin-left: auto;
+}
+.dot {
+  background: var(--accent);
+}
+.dot.green {
+  background: var(--accent);
+}
+.notification-button i {
+  position: absolute;
+  height: 5px;
+  width: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+  top: 4px;
+  right: 4px;
+}
+.selected .pipeline-dot {
+  background: var(--accent);
+  border-color: var(--border-strong);
+}
+.dot.amber {
+  background: var(--amber);
+}

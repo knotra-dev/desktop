@@ -96,6 +96,7 @@ export interface EngineRun {
   outputs: Record<string, Json>;
   artifacts: EngineArtifact[];
   instances: EngineInstance[];
+  instancesNextCursor?: string;
   diagnostics: EngineDiagnostic[];
   availableActions: ('cancel' | 'resume' | 'resolve')[];
   dataTruncated?: boolean;
@@ -151,6 +152,7 @@ export type EngineCall =
   | { op: 'info' | 'definitions' | 'profiles' | 'resources' }
   | { op: 'runs' | 'requests' | 'artifacts'; cursor: string | null }
   | { op: 'run'; runId: string }
+  | { op: 'instances'; runId: string; cursor: string | null }
   | { op: 'history'; runId: string; instanceId?: string; cursor: string | null }
   | { op: 'definition'; definitionId: string }
   | { op: 'artifact'; artifactId: string }

@@ -1,12 +1,12 @@
 import { decodeText } from '../bytes';
-import { record, type Graph, type Json } from '../types';
+import { type Graph, type Json, record } from '../types';
 import { duration, mergeEvents, packageGraphs } from './observation';
 import {
-  terminal,
   type EngineEvent,
   type EngineInstance,
   type EngineRun,
   type EngineStatus,
+  terminal,
 } from './types';
 
 const statuses = new Set<EngineStatus>([
@@ -224,15 +224,17 @@ export function instanceAddresses(
   for (const instance of run.instances) address(instance);
   const counts = new Map<string, number>();
   for (const value of result.values()) counts.set(value.key, (counts.get(value.key) ?? 0) + 1);
-  for (const value of result.values()) if (counts.get(value.key)! > 1) value.ambiguous = true;
+  for (const value of result.values()) if ((counts.get(value.key) ?? 0) > 1) value.ambiguous = true;
   function ambiguousAncestor(instance: EngineInstance, visited = new Set<string>()): boolean {
     if (visited.has(instance.id) || result.get(instance.id)?.ambiguous) return true;
     if (!instance.parentInstanceId) return false;
     const parent = byId.get(instance.parentInstanceId);
     return !parent || ambiguousAncestor(parent, new Set(visited).add(instance.id));
   }
-  for (const instance of run.instances)
-    if (ambiguousAncestor(instance)) result.get(instance.id)!.ambiguous = true;
+  for (const instance of run.instances) {
+    const value = result.get(instance.id);
+    if (value && ambiguousAncestor(instance)) value.ambiguous = true;
+  }
   return result;
 }
 
@@ -245,7 +247,8 @@ function compareInstances(before: EngineRun, after: EngineRun): InstanceChange[]
     [after, 'after', afterAddresses],
   ] as const) {
     for (const instance of run.instances) {
-      const address = addresses.get(instance.id)!;
+      const address = addresses.get(instance.id);
+      if (!address) continue;
       const key = address.ambiguous ? `${address.key} · ${run.id}/${instance.id}` : address.key;
       const row = rows.get(key) ?? {
         key: address.key,

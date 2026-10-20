@@ -1,0 +1,73 @@
+@media (max-width: 1200px) {
+  .app-sidebar {
+    width: 198px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .brand > small {
+    display: none;
+  }
+  .inspector {
+    width: 260px;
+  }
+  .page-heading {
+    padding: 26px 24px;
+  }
+  .page-heading h1 {
+    font-size: 27px;
+  }
+  .page-heading p {
+    font-size: 11px;
+  }
+  .heading-actions .button {
+    font-size: 10px;
+    padding: 8px 10px;
+  }
+  .app-header {
+    padding: 0 24px;
+  }
+  .runtime-label {
+    display: none;
+  }
+  .artifact-inspector {
+    width: 270px;
+  }
+  .request-list {
+    width: 190px;
+  }
+  .table-header,
+  .run-table-row {
+    grid-template-columns: minmax(200px, 1.6fr) 1fr 1fr 70px;
+    gap: 10px;
+  }
+  .summary-cards > div {
+    padding: 17px;
+  }
+}
+@media (max-height: 760px) {
+  .app-sidebar {
+    padding-top: 20px;
+  }
+  .brand {
+    padding-bottom: 20px;
+  }
+  .sidebar-bottom {
+    padding-top: 15px;
+  }
+  .page-heading {
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced motion must override component and library animations. */
+    animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced motion must override component and library animations. */
+    transition: none !important;
+  }
+  .react-flow__edge.animated path {
+    /* biome-ignore lint/complexity/noImportantStyles: Reduced motion must override component and library animations. */
+    animation: none !important;
+  }
+}

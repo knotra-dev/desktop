@@ -1,5 +1,5 @@
 import { decodeText } from './bytes';
-import { record, type Graph, type PackageFile } from './types';
+import { type Graph, type PackageFile, record } from './types';
 import { parsePipeline } from './validation';
 
 type DraftPackage = { entrypoint: string; source: string; files: PackageFile[] };

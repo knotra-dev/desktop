@@ -1,6 +1,6 @@
-import { test, expect, type Page } from '@playwright/test';
-import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { expect, type Page, test } from '@playwright/test';
 import { zipSync } from 'fflate';
 
 const endpoint = process.env.KNOTRA_E2E_ENDPOINT;
@@ -133,7 +133,7 @@ test('real Ollama run publishes an artifact and replays history on a fresh clien
     await fresh.goto(new URL('/', page.url()).toString());
     await connect(fresh);
     await navigate(fresh, 'Runs');
-    await fresh.locator('.table-row').filter({ hasText: title }).click();
+    await fresh.locator('.run-table-row').filter({ hasText: title }).click();
     await fresh.getByRole('button', { name: 'Timeline', exact: true }).click();
     await expect.poll(() => fresh.locator('.timeline-event').count()).toBeGreaterThan(4);
     await expect(fresh.locator('.timeline')).toContainText('succeeded');
@@ -241,7 +241,7 @@ Path(os.environ['KNOTRA_OUTPUT_JSON']).write_text('{}')
   await page.getByRole('button', { name: 'Submit response' }).click();
   await expect(page.getByRole('heading', { name: 'No open engine requests' })).toBeVisible();
   await navigate(page, 'Runs');
-  await page.locator('.table-row').filter({ hasText: title }).click();
+  await page.locator('.run-table-row').filter({ hasText: title }).click();
   await expect(page.locator('.page-heading .status')).toHaveText('Completed', { timeout: 30_000 });
   const { run } = await (await page.request.get(`${endpoint}/v1/runs/${startedRun.id}`)).json();
   await page.getByRole('button', { name: 'Live graph', exact: true }).click();

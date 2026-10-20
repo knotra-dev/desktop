@@ -1,18 +1,24 @@
-import { parseDocument } from 'yaml';
-import { openActiveEditor } from './authoring';
-import { test, expect, type Page } from '@playwright/test';
-import { createServer, type Server, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash } from 'node:crypto';
-import type { EngineRun, EngineRequest, EngineEvent } from '../../src/lib/engine/types';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { expect, type Page, test } from '@playwright/test';
+import { parseDocument } from 'yaml';
+import type {
+  EngineArtifact,
+  EngineEvent,
+  EnginePackage,
+  EngineRequest,
+  EngineRun,
+} from '../../src/lib/engine/types';
+import { openActiveEditor } from './authoring';
 
-let uploaded: { descriptor: any; bytes: Buffer } | undefined;
+let uploaded: { descriptor: EngineArtifact; bytes: Buffer } | undefined;
 let principal = 'test-user';
 let server: Server;
 let address = '';
 let runs: EngineRun[] = [];
 let requests: EngineRequest[] = [];
-let writes: { path: string; key: string; body: any }[] = [];
-let accepted = new Map<string, any>();
+let writes: { path: string; key: string; body: Record<string, unknown> }[] = [];
+let accepted = new Map<string, unknown>();
 let streams: ServerResponse[] = [];
 let reconnectHeaders: string[] = [];
 let loseStart = false;
@@ -21,8 +27,8 @@ let rejectResolution = false;
 let holdNextRuns = false;
 let heldRuns: { response: ServerResponse; value: unknown }[] = [];
 let badHash = false;
-let artifactBytes = Buffer.from([0, 255, 128, 10]);
-let lastPackage: any;
+const artifactBytes = Buffer.from([0, 255, 128, 10]);
+let lastPackage: EnginePackage;
 let eventNumber = 0;
 let history: EngineEvent[] = [];
 const descriptor = () => ({
@@ -43,7 +49,7 @@ function json(response: ServerResponse, value: unknown, status = 200) {
   response.end(JSON.stringify(value));
 }
 
-async function read(request: IncomingMessage) {
+async function read(request: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks = [];
   for await (const chunk of request) chunks.push(chunk);
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {};
@@ -188,7 +194,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     if (accepted.has(key)) return json(response, accepted.get(key));
   }
   if (path === '/v1/packages/validate') {
-    if (body.inputs.reject)
+    if ((body.inputs as EngineRun['inputs']).reject)
       return json(response, {
         valid: false,
         diagnostics: [
@@ -207,7 +213,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     return json(response, { valid: true, diagnostics: [] });
   }
   if (path === '/v1/definitions') {
-    lastPackage = body.package;
+    lastPackage = body.package as EnginePackage;
     const result = { definition: { id: 'definition-1' } };
     accepted.set(key, result);
     return json(response, result);
@@ -223,15 +229,15 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     }
     const run: EngineRun = {
       id: 'run-1',
-      definitionId: body.definitionId,
+      definitionId: body.definitionId as string,
       title: 'Future engine workflow',
       status: 'waiting_human',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      profile: body.profile,
+      profile: body.profile as string,
       package: lastPackage,
-      inputs: body.inputs,
-      inputArtifacts: body.artifacts,
+      inputs: body.inputs as EngineRun['inputs'],
+      inputArtifacts: body.artifacts as EngineRun['inputArtifacts'],
       outputs: {},
       artifacts: [],
       instances: [
@@ -257,7 +263,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
         prompt: 'Confirm this actual saved request.',
         createdAt: run.createdAt,
         deadline: '2030-01-01T00:00:00Z',
-        inputs: { values: body.inputs, artifacts: {} },
+        inputs: { values: body.inputs as EngineRun['inputs'], artifacts: {} },
         responseSchema: {
           type: 'object',
           required: ['feedback'],
@@ -285,7 +291,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     requests[0].status = 'answered';
     runs[0].status = 'succeeded';
     runs[0].instances[0].status = 'succeeded';
-    runs[0].outputs = { feedback: body.outputs.feedback };
+    runs[0].outputs = { feedback: (body.outputs as EngineRun['outputs']).feedback };
     runs[0].artifacts = [descriptor()];
     runs[0].availableActions = [];
     emit('Review accepted.');
@@ -317,14 +323,14 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     return json(response, result);
   }
   if (path === '/v1/artifacts') {
-    const bytes = Buffer.from(body.content, 'base64');
+    const bytes = Buffer.from(body.content as string, 'base64');
     uploaded = {
       bytes,
       descriptor: {
         ...descriptor(),
         id: 'uploaded-1',
-        name: body.name,
-        mediaType: body.mediaType,
+        name: body.name as string,
+        mediaType: body.mediaType as string,
         size: bytes.length,
         sha256: createHash('sha256').update(bytes).digest('hex'),
         origin: {},
@@ -527,7 +533,8 @@ test('corrupt artifact bytes cannot be previewed or exported', async ({ page }) 
   await nav(page, 'Artifacts');
   await page.getByRole('button', { name: /result.bin/ }).click();
   await expect(page.getByRole('alert')).toContainText('SHA-256');
-  expect(await page.locator('.artifact-text').textContent()).not.toContain('Binary artifact');
+  await expect(page.locator('.artifact-text')).toBeEmpty();
+  await expect(page.getByRole('button', { name: 'Export', exact: true })).toBeDisabled();
 });
 
 test('remote transport must be authenticated HTTPS; tokens never reach workspace persistence', async ({
@@ -618,7 +625,7 @@ test('input artifact upload registers exact bytes and can be exported without te
     .setInputFiles({ name: 'input.bin', mimeType: 'application/octet-stream', buffer: bytes });
   await expect(page.getByRole('button', { name: /input.bin/ })).toBeVisible();
   expect(writes.at(-1)?.path).toBe('/v1/artifacts');
-  expect(Buffer.from(writes.at(-1)?.body.content, 'base64')).toEqual(bytes);
+  expect(Buffer.from(writes.at(-1)?.body.content as string, 'base64')).toEqual(bytes);
   expect(writes.at(-1)?.key).toBeTruthy();
   await page.getByRole('button', { name: /input.bin/ }).click();
   await expect(page.locator('.artifact-text')).toContainText('Binary artifact');
@@ -852,7 +859,7 @@ spec:
   ];
   await connect(page);
   await nav(page, 'Runs');
-  await page.locator('.table-row').filter({ hasText: 'Live observation fixture' }).click();
+  await page.locator('.run-table-row').filter({ hasText: 'Live observation fixture' }).click();
   await expect(page.locator('.execution-canvas .react-flow__node')).toHaveCount(2);
   await page.locator('.react-flow__node[data-id="verify"]').click();
   await expect(page.locator('.execution-inspector')).toContainText('Waiting for');
@@ -973,7 +980,7 @@ spec:
   await page.reload();
   await connect(page);
   await nav(page, 'Runs');
-  await page.locator('.table-row').filter({ hasText: 'Live observation fixture' }).click();
+  await page.locator('.run-table-row').filter({ hasText: 'Live observation fixture' }).click();
   await page.locator('.react-flow__node[data-id="draft"]').click();
   await expect(page.locator('.execution-response pre')).toHaveText('Hello from the live model.');
   expect(writes).toHaveLength(0);
@@ -1028,7 +1035,7 @@ spec:
   ];
   await connect(page);
   await nav(page, 'Runs');
-  const titles = page.locator('.table-row .run-name strong');
+  const titles = page.locator('.run-table-row .run-name strong');
   await expect(titles).toHaveText([
     'Newest tied B',
     'Newest tied A',

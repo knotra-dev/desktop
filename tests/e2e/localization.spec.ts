@@ -1,7 +1,7 @@
-import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
-import { expect, test, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { expect, type Page, test } from '@playwright/test';
+import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
 
 test.use({ locale: 'en-US' });
 

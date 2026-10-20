@@ -1,7 +1,7 @@
-import { RESEARCH_SOURCE } from './examples';
 import { sha256, textBytes } from './bytes';
-import { parsePipeline, validateResponse } from './validation';
+import { RESEARCH_SOURCE } from './examples';
 import type { DemoRun, Json, RunEvent, Workspace } from './types';
+import { parsePipeline, validateResponse } from './validation';
 
 export const demoNodeIds = ['discover', 'research', 'draft', 'review', 'publish'];
 

@@ -1,6 +1,6 @@
 import { decodeText } from '../bytes';
+import { type Graph, type NodeDefinition, record } from '../types';
 import { parsePipeline } from '../validation';
-import { record, type Graph, type NodeDefinition } from '../types';
 import type { EngineArtifact, EngineEvent, EngineInstance, EngineRun, EngineStatus } from './types';
 
 export interface ExecutionGraph {
@@ -30,7 +30,8 @@ export function packageGraphs(run: EngineRun): Map<string, Graph> {
   const pending = root ? imports(root.spec) : [];
   const visited = new Set<string>();
   while (pending.length) {
-    const path = pending.pop()!;
+    const path = pending.pop();
+    if (path === undefined) break;
     if (visited.has(path)) continue;
     visited.add(path);
     const file = files.get(path);

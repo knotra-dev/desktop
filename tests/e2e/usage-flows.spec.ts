@@ -1,9 +1,10 @@
-import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
-import { test, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { expect, type Page, test } from '@playwright/test';
+import { unzipSync, zipSync } from 'fflate';
 import { parse } from 'yaml';
-import { zipSync, unzipSync } from 'fflate';
+import { type NodeDefinition, record } from '../../src/lib/types';
+import { addResearchDemo, openActiveEditor } from './authoring';
 
 const runtimeErrors = new WeakMap<Page, string[]>();
 
@@ -82,7 +83,7 @@ async function fits(page: Page) {
   expect(controlsFit).toBe(true);
 }
 
-async function configure(page: Page, id: string, node: any) {
+async function configure(page: Page, id: string, node: NodeDefinition) {
   if (node.type === 'llm') {
     await page.getByRole('combobox', { name: 'Prompt source', exact: true }).selectOption('text');
     await page
@@ -116,7 +117,8 @@ async function configure(page: Page, id: string, node: any) {
       .poll(async () => (await pipeline(page)).spec.nodes[id].human.prompt.text)
       .toBe('Return your verified answer.');
   } else if (node.type === 'code') {
-    const index = node.code.command.length;
+    const command = record(node.code).command as string[];
+    const index = command.length;
     await page.getByRole('button', { name: 'Add argument', exact: true }).click();
     await page
       .getByRole('textbox', { name: `Argument ${index}`, exact: true })
@@ -128,7 +130,7 @@ async function configure(page: Page, id: string, node: any) {
     await page.getByRole('button', { name: `Remove argument ${index}`, exact: true }).click();
     await expect
       .poll(async () => (await pipeline(page)).spec.nodes[id].code.command)
-      .toEqual(node.code.command);
+      .toEqual(command);
   } else if (node.type === 'tool') {
     await page.getByRole('combobox', { name: 'Tool arguments', exact: true }).selectOption('value');
     await page
@@ -154,11 +156,11 @@ async function configure(page: Page, id: string, node: any) {
     await page.getByRole('button', { name: 'Add route', exact: true }).click();
     await expect
       .poll(async () => (await pipeline(page)).spec.nodes[id].switch.cases.length)
-      .toBe(node.switch.cases.length + 1);
+      .toBe((record(node.switch).cases as unknown[]).length + 1);
     await page.getByRole('button', { name: 'Remove route', exact: true }).last().click();
     await expect
       .poll(async () => (await pipeline(page)).spec.nodes[id].switch.cases.length)
-      .toBe(node.switch.cases.length);
+      .toBe((record(node.switch).cases as unknown[]).length);
   } else if (node.type === 'foreach' || node.type === 'loop') {
     const kind = node.type;
     const number = page.getByRole('spinbutton', {
@@ -192,7 +194,7 @@ async function configure(page: Page, id: string, node: any) {
       .getByRole('textbox', { name: 'Review request', exact: true })
       .fill('Return the verified iteration result.');
     await save(page);
-    const child = Object.keys(node[kind].body.nodes)[0];
+    const child = Object.keys(record(record(record(node[kind]).body).nodes))[0];
     await expect
       .poll(
         async () => (await pipeline(page)).spec.nodes[id][kind].body.nodes[child].human.prompt.text,
@@ -202,9 +204,9 @@ async function configure(page: Page, id: string, node: any) {
   } else if (node.type === 'pipeline') {
     await expect(
       page.getByRole('combobox', { name: 'Child pipeline file', exact: true }),
-    ).toHaveValue(node.pipeline.file);
+    ).toHaveValue(record(node.pipeline).file as string);
     await expect(page.getByRole('textbox', { name: 'Child permissions', exact: true })).toHaveValue(
-      JSON.stringify(node.pipeline.permissions, null, 2),
+      JSON.stringify(record(node.pipeline).permissions, null, 2),
     );
   }
 }
@@ -537,9 +539,9 @@ test('folder and loose YAML imports work and reject invalid selections', async (
   await page.getByRole('button', { name: 'Open package', exact: true }).click();
   const looseChooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: /^Select files or ZIP/ }).click();
-  await (
-    await looseChooser
-  ).setFiles(resolve('vendor/engine/contracts/v1/fixtures/positive/human/pipeline.yaml'));
+  await (await looseChooser).setFiles(
+    resolve('vendor/engine/contracts/v1/fixtures/positive/human/pipeline.yaml'),
+  );
   await expect(page.getByRole('heading', { name: 'basic-human', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open package', exact: true }).click();
   await page.getByLabel('Import pipeline package', { exact: true }).setInputFiles({
@@ -626,7 +628,9 @@ test('ZIP import preserves an entrypoint BOM and rejects duplicate paths before 
     const archive = Buffer.from(zipSync({ 'pipeline.yaml': pipeline, 'pipeline.YAML': pipeline }));
     if (exact) {
       let position = 0;
-      while ((position = archive.indexOf('pipeline.YAML', position)) >= 0) {
+      while (true) {
+        position = archive.indexOf('pipeline.YAML', position);
+        if (position < 0) break;
         archive.write('pipeline.yaml', position);
         position += 'pipeline.yaml'.length;
       }
@@ -669,7 +673,7 @@ test('demo tabs, cancellation, review links and artifact search complete the run
   await page
     .getByRole('combobox', { name: 'Filter runs by status', exact: true })
     .selectOption('cancelled');
-  await expect(page.locator('.table-row')).toHaveCount(1);
+  await expect(page.locator('.run-table-row')).toHaveCount(1);
   await page.getByRole('textbox', { name: 'Search runs', exact: true }).fill('missing');
   await expect(page.getByRole('heading', { name: 'No matching runs', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Search runs', exact: true }).fill('');
@@ -709,7 +713,7 @@ test('demo tabs, cancellation, review links and artifact search complete the run
   await page
     .getByRole('combobox', { name: 'Filter runs by status', exact: true })
     .selectOption('all');
-  await page.locator('.table-row').filter({ hasText: 'Completed UI check' }).click();
+  await page.locator('.run-table-row').filter({ hasText: 'Completed UI check' }).click();
   await page.getByRole('button', { name: 'Outputs', exact: true }).click();
   await expect(page.locator('.json-view')).toContainText('document');
   await page.screenshot({ path: test.info().outputPath('knotra-audit-run-complete.png') });
@@ -739,7 +743,7 @@ test('demo tabs, cancellation, review links and artifact search complete the run
       for (const view of ['Runs', 'Inbox', 'Artifacts', 'Resources']) {
         await nav(page, view);
         if (view === 'Runs') {
-          await page.locator('.table-row').filter({ hasText: 'Completed UI check' }).click();
+          await page.locator('.run-table-row').filter({ hasText: 'Completed UI check' }).click();
           const bottom = await page.locator('.run-bottom').boundingBox();
           expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(height);
           await page.getByRole('button', { name: 'All runs', exact: true }).click();

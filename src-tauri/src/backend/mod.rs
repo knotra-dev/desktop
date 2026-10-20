@@ -334,6 +334,10 @@ pub enum Call {
     Run {
         run_id: String,
     },
+    Instances {
+        run_id: String,
+        cursor: Option<String>,
+    },
     History {
         run_id: String,
         instance_id: Option<String>,
@@ -423,6 +427,12 @@ impl Call {
                 (Method::GET, vec!["definitions", definition_id], None, None)
             }
             Self::Run { run_id } => (Method::GET, vec!["runs", run_id], None, None),
+            Self::Instances { run_id, cursor } => (
+                Method::GET,
+                vec!["runs", run_id, "instances"],
+                None,
+                cursor.as_deref(),
+            ),
             Self::History { run_id, cursor, .. } => (
                 Method::GET,
                 vec!["runs", run_id, "history"],
@@ -704,7 +714,12 @@ async fn execute(store: &store::Store, session: &Session, call: &Call) -> Result
     if let Some(id) = call.operation() {
         store.complete(&session.key, id, &value)?;
     }
-    if call.operation().is_none() && !matches!(call, Call::Validate { .. } | Call::History { .. }) {
+    if call.operation().is_none()
+        && !matches!(
+            call,
+            Call::Validate { .. } | Call::History { .. } | Call::Instances { .. }
+        )
+    {
         let key = serde_json::to_string(call).map_err(Error::storage)?;
         store.cache(&session.key, &key, &value)?;
     }
@@ -756,6 +771,12 @@ fn check_response(call: &Call, value: &Value) -> Result<()> {
                 && value["artifact"]["sha256"]
                     .as_str()
                     .is_some_and(|hash| hash.len() == 64)
+        }
+        Call::Instances { cursor, .. } => {
+            page()
+                && (value["nextCursor"].is_null()
+                    || (identifier(&value["nextCursor"])
+                        && value["nextCursor"].as_str() != cursor.as_deref()))
         }
         Call::Runs { .. } | Call::Requests { .. } | Call::Artifacts { .. } => page(),
         Call::Profiles | Call::Resources | Call::Definitions => value["items"].is_array(),

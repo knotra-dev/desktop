@@ -1,0 +1,87 @@
+:root {
+  --base: #0b0d0c;
+  --surface: #161616;
+  --surface-raised: #202020;
+  --surface-active: #2b302d;
+  --surface-highlight: #39433d;
+  --text: #eeeeeb;
+  --text-secondary: #c7cfc9;
+  --text-muted: #9ba69f;
+  --text-subtle: #87938b;
+  --border: #383f3a;
+  --border-strong: #5b6860;
+  --border-focus: #9daea3;
+  --accent: #a1dec4;
+  --accent-surface: #24362c;
+  --accent-border: #739f8a;
+  --accent-rgb: 161 222 196;
+  --amber: #d5b88b;
+  --amber-surface: #322b1f;
+  --amber-border: #8a7654;
+  --amber-rgb: 213 184 139;
+  --danger: #e5a19b;
+  --danger-surface: #372624;
+  --danger-border: #b47771;
+  --danger-rgb: 229 161 155;
+  --violet: #c7c0e3;
+  --violet-surface: #2e2b37;
+  --violet-border: #8b829f;
+  --violet-rgb: 199 192 227;
+  --overlay-rgb: 255 255 255;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --base: #f5f7f3;
+  --surface: #ffffff;
+  --surface-raised: #eef2ec;
+  --surface-active: #e3eae2;
+  --surface-highlight: #d6e2d5;
+  --text: #202d24;
+  --text-secondary: #35463a;
+  --text-muted: #56665b;
+  --text-subtle: #617067;
+  --border: #d0d9ce;
+  --border-strong: #b0c0b1;
+  --border-focus: #7c9984;
+  --accent: #23734f;
+  --accent-surface: #e4efe6;
+  --accent-border: #6c9f7d;
+  --accent-rgb: 35 115 79;
+  --amber: #865f1e;
+  --amber-surface: #f7eedb;
+  --amber-border: #b7985e;
+  --amber-rgb: 134 95 30;
+  --danger: #ab443d;
+  --danger-surface: #f9e9e5;
+  --danger-border: #c58d85;
+  --danger-rgb: 171 68 61;
+  --violet: #705a9c;
+  --violet-surface: #eeeaf6;
+  --violet-border: #a899c5;
+  --violet-rgb: 112 90 156;
+  --overlay-rgb: 32 45 36;
+}
+
+@theme {
+  --spacing: 4px;
+}
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-active: var(--surface-active);
+  --color-surface-highlight: var(--surface-highlight);
+  --color-foreground: var(--text);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-line-focus: var(--border-focus);
+  --color-accent: var(--accent);
+  --color-accent-surface: var(--accent-surface);
+  --color-accent-border: var(--accent-border);
+  --color-amber: var(--amber);
+  --color-danger: var(--danger);
+  --color-violet: var(--violet);
+}

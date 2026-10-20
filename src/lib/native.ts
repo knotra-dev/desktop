@@ -1,4 +1,4 @@
-import { isTauri, invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { base64, decodeText, textBytes } from './bytes';
 import type { PackageFile } from './types';
 

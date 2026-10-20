@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 for (const width of [1024, 1440]) {
   test(`Inbox keeps opaque request IDs inside their cards at ${width}px`, async ({ page }) => {
@@ -10,7 +10,7 @@ for (const width of [1024, 1440]) {
       await expect(page.locator('.review-card h2')).toHaveText(
         missingRuns ? 'HUMAN REQUEST' : 'review_first',
       );
-      await expect(page.locator('.request-list button.active')).toContainText(
+      await expect(page.getByRole('button', { pressed: true })).toContainText(
         missingRuns ? 'run-first' : 'Research first',
       );
       const bounds = await page.evaluate(() => {
@@ -48,13 +48,18 @@ test('switching human requests preserves each unsent response and marks the disp
   await page.goto('/tests/fixtures/frontend-audit.html?component=inbox');
   const first = page.getByRole('button', { name: /review_first/ });
   const second = page.getByRole('button', { name: /review_second/ });
-  await expect(first).toHaveClass('active');
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(second).toHaveAttribute('aria-pressed', 'false');
   const response = page.getByRole('textbox', { name: 'Engine review response' });
   await response.fill('{"feedback":"First review in progress"}');
   await second.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'false');
+  await expect(second).toHaveAttribute('aria-pressed', 'true');
   await expect(response).toHaveValue('{}');
   await response.fill('{"feedback":"Second review in progress"}');
   await first.click();
+  await expect(first).toHaveAttribute('aria-pressed', 'true');
+  await expect(second).toHaveAttribute('aria-pressed', 'false');
   await expect(response).toHaveValue('{"feedback":"First review in progress"}');
   await second.click();
   await expect(response).toHaveValue('{"feedback":"Second review in progress"}');

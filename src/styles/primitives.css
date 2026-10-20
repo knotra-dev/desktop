@@ -1,0 +1,19 @@
+@utility button {
+  @apply inline-flex items-center justify-center gap-2 border border-solid border-line-strong bg-transparent text-foreground rounded-[30px] min-h-9.5 pt-2.5 pr-4 pb-2.5 pl-4 text-[12px] whitespace-nowrap font-[450] [transition:background_0.15s,_border-color_0.15s];
+}
+
+@utility icon-button {
+  @apply inline-flex items-center justify-center pt-1.75 pr-1.75 pb-1.75 pl-1.75 text-muted rounded-full;
+}
+
+@utility text-button {
+  @apply inline-flex items-center gap-1.5 text-accent text-[12px] leading-[1.5] pt-1 pr-0 pb-1 pl-0;
+}
+
+@utility status {
+  @apply inline-flex items-center gap-1.75 text-[11px] pt-1.5 pr-2.5 pb-1.5 pl-2.5 border border-solid border-line-strong rounded-[30px] w-max bg-[rgb(var(--overlay-rgb)_/_0.016)] text-muted whitespace-nowrap;
+}
+
+@utility node-icon {
+  @apply inline-flex items-center justify-center w-8.5 h-8.5 rounded-[9px] shrink-0 border border-solid border-[rgb(var(--accent-rgb)_/_0.141)];
+}

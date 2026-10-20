@@ -11,6 +11,24 @@ fn runtime() -> tokio::runtime::Runtime {
         .unwrap()
 }
 
+#[test]
+fn instance_pages_validate_projections_without_caching_them() {
+    runtime().block_on(async {
+        let (session, task) = fixture(2, |index, request| {
+            assert!(request.starts_with("GET /v1/runs/r1/instances?cursor=n1 "));
+            let status = if index == 0 { "succeeded" } else { "invalid" };
+            let response = json!({"items":[{"id":"n2", "nodeId":"work", "scope":"pipeline.yaml", "status":status}], "nextCursor":null});
+            (200, "application/json", serde_json::to_vec(&response).unwrap())
+        });
+        let store = store::Store::open(std::path::Path::new(":memory:")).unwrap();
+        let call = Call::Instances { run_id: "r1".into(), cursor: Some("n1".into()) };
+        assert_eq!(execute(&store, &session, &call).await.unwrap()["items"][0]["id"], "n2");
+        assert!(store.snapshot("fixture").unwrap()["cache"].as_object().unwrap().is_empty());
+        assert_eq!(execute(&store, &session, &call).await.unwrap_err().code, "protocol");
+        task.join().unwrap();
+    });
+}
+
 fn fixture<F>(count: usize, handle: F) -> (Session, std::thread::JoinHandle<()>)
 where
     F: Fn(usize, String) -> (u16, &'static str, Vec<u8>) + Send + 'static,

@@ -1,22 +1,25 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { desktop } from '../native';
 import { base64, sha256 } from '../bytes';
+import { desktop } from '../native';
+import { record } from '../types';
+import { acceptBrowserEvent, browserEventState } from './browserEvents';
+import { EngineError, engineError } from './error';
 import {
-  PROTOCOL,
+  type Definition,
   type EngineArtifact,
   type EngineCache,
   type EngineCall,
-  type EngineInfo,
   type EngineEvent,
+  type EngineInfo,
+  type EngineRun,
   type Page,
+  PROTOCOL,
   type StreamMessage,
 } from './types';
-import { EngineError, engineError } from './error';
 import { assertEngineModel } from './validation';
-import { acceptBrowserEvent, browserEventState } from './browserEvents';
 
-export { EngineError, engineError } from './error';
 export { eventWindow } from './browserEvents';
+export { EngineError, engineError } from './error';
 
 let connection: { url: string; token?: string; key: string } | undefined;
 let sessionRevision = 0;
@@ -32,20 +35,24 @@ const stable = (value: unknown): string =>
       : next,
   );
 const watches = new Set<AbortController>();
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Credentials and protocol identifiers must reject ASCII control bytes.
+const CONTROL_CHARACTERS = /[\x00-\x1f\x7f]/;
 
 function cache(): EngineCache {
+  if (!connection) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
   try {
-    return JSON.parse(localStorage.getItem(connection!.key) ?? '{"cache":{},"pending":[]}');
+    return JSON.parse(localStorage.getItem(connection.key) ?? '{"cache":{},"pending":[]}');
   } catch {
     throw new EngineError('storage', 'Engine cache could not be read.');
   }
 }
 
 function writeCache(value: EngineCache) {
-  localStorage.setItem(connection!.key, JSON.stringify(value));
+  if (!connection) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
+  localStorage.setItem(connection.key, JSON.stringify(value));
 }
 
-export function parseEngineJSON(text: string): any {
+export function parseEngineJSON(text: string): unknown {
   try {
     const value = JSON.parse(text);
     checkSafeNumbers(
@@ -88,7 +95,7 @@ function endpoint(url: string, token?: string) {
     );
   if (!local && (parsed.protocol !== 'https:' || !token))
     throw new EngineError('input', 'Remote engines require HTTPS and an access token.');
-  if (token && (token.length > 8192 || /[\x00-\x1f\x7f]/.test(token)))
+  if (token && (token.length > 8192 || CONTROL_CHARACTERS.test(token)))
     throw new EngineError('input', 'Invalid access token.');
   return parsed.toString().replace(/\/$/, '');
 }
@@ -98,7 +105,11 @@ function url(path: string[], cursor?: string | null, instanceId?: string) {
   if (
     path.some(
       (part) =>
-        !part || part === '.' || part === '..' || part.length > 256 || /[\x00-\x1f\x7f]/.test(part),
+        !part ||
+        part === '.' ||
+        part === '..' ||
+        part.length > 256 ||
+        CONTROL_CHARACTERS.test(part),
     )
   )
     throw new EngineError('input', 'Invalid API identifier.');
@@ -158,7 +169,7 @@ async function jsonRequest(
     signal: AbortSignal.timeout(30_000),
     credentials: 'omit',
   });
-  let value;
+  let value: unknown;
   try {
     value = parseEngineJSON(
       new TextDecoder('utf-8', { fatal: true }).decode(
@@ -171,14 +182,15 @@ async function jsonRequest(
   }
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new EngineError('protocol', 'Expected an engine response object.');
+  const result = record(value);
   if (!response.ok)
     throw new EngineError(
-      value.code ?? 'engine',
-      value.message ?? 'Engine rejected the request.',
+      typeof result.code === 'string' ? result.code : 'engine',
+      typeof result.message === 'string' ? result.message : 'Engine rejected the request.',
       response.status,
-      value.diagnostics ?? [],
+      Array.isArray(result.diagnostics) ? result.diagnostics : [],
     );
-  return value;
+  return result;
 }
 
 export async function connectEngine(address: string, token?: string): Promise<EngineInfo> {
@@ -186,22 +198,23 @@ export async function connectEngine(address: string, token?: string): Promise<En
   const revision = sessionRevision;
   const addressUrl = endpoint(address, token);
   try {
-    let info: EngineInfo;
+    let info: unknown;
     if (desktop) info = await invoke('engine_connect', { url: addressUrl, token: token || null });
     else {
       connection = { url: addressUrl, token, key: '' };
       info = await jsonRequest(['info']);
     }
+    const candidate = record(info);
     if (
-      info.protocol !== PROTOCOL ||
-      typeof info.engineId !== 'string' ||
-      typeof info.principalId !== 'string' ||
-      !Array.isArray(info.capabilities)
+      candidate.protocol !== PROTOCOL ||
+      typeof candidate.engineId !== 'string' ||
+      typeof candidate.principalId !== 'string' ||
+      !Array.isArray(candidate.capabilities)
     )
       throw new EngineError('incompatible', `Engine does not implement the ${PROTOCOL} contract.`);
     if (revision !== sessionRevision)
       throw new EngineError('disconnected', 'Connection changed while connecting.');
-    assertEngineModel('Info', info);
+    assertEngineModel<EngineInfo>('Info', info);
     connection = {
       url: addressUrl,
       token,
@@ -249,6 +262,8 @@ function route(call: EngineCall): {
       return { path: [call.op], cursor: call.cursor };
     case 'run':
       return { path: ['runs', call.runId] };
+    case 'instances':
+      return { path: ['runs', call.runId, 'instances'], cursor: call.cursor };
     case 'history':
       return {
         path: ['runs', call.runId, 'history'],
@@ -299,22 +314,23 @@ function route(call: EngineCall): {
   }
 }
 
-function checkReceipt(call: EngineCall, value: any) {
+function checkReceipt(call: EngineCall, response: unknown) {
+  const value = record(response);
   const id = (value: unknown) =>
-    typeof value === 'string' && !!value && value.length <= 256 && !/[\x00-\x1f\x7f]/.test(value);
+    typeof value === 'string' && !!value && value.length <= 256 && !CONTROL_CHARACTERS.test(value);
   const valid =
     call.op === 'validate'
       ? typeof value.valid === 'boolean' && Array.isArray(value.diagnostics)
       : call.op === 'publish'
-        ? id(value.definition?.id)
+        ? id(record(value.definition).id)
         : call.op === 'start'
-          ? id(value.run?.id)
+          ? id(record(value.run).id)
           : call.op === 'respond'
             ? value.accepted === true && value.requestId === call.requestId
             : ['cancel', 'resume', 'resolve'].includes(call.op)
               ? value.accepted === true && value.runId === ('runId' in call ? call.runId : '')
               : call.op === 'upload'
-                ? id(value.artifact?.id)
+                ? id(record(value.artifact).id)
                 : true;
   if (!valid)
     throw new EngineError(
@@ -323,28 +339,50 @@ function checkReceipt(call: EngineCall, value: any) {
     );
 }
 
-function checkReadResponse(call: EngineCall, value: any) {
+function checkReadResponse(call: EngineCall, response: unknown) {
+  const value = record(response);
+  const checkRunCursor = (run: EngineRun) => {
+    if (
+      run.instancesNextCursor !== undefined &&
+      (typeof run.instancesNextCursor !== 'string' || !run.instancesNextCursor)
+    )
+      throw new EngineError('protocol', 'Invalid instance pagination cursor.');
+  };
   switch (call.op) {
     case 'info':
       assertEngineModel('Info', value);
       break;
     case 'run':
-      assertEngineModel('Run', value.run);
+      assertEngineModel<EngineRun>('Run', value.run);
+      checkRunCursor(value.run);
       if (value.run.id !== call.runId)
         throw new EngineError('protocol', 'Run identity does not match the request.');
       break;
     case 'definition':
-      assertEngineModel('Definition', value.definition);
+      assertEngineModel<Definition>('Definition', value.definition);
       if (value.definition.id !== call.definitionId)
         throw new EngineError('protocol', 'Definition identity does not match the request.');
       break;
     case 'artifact':
-      assertEngineModel('Artifact', value.artifact);
+      assertEngineModel<EngineArtifact>('Artifact', value.artifact);
       if (value.artifact.id !== call.artifactId)
         throw new EngineError('protocol', 'Artifact identity does not match the request.');
       break;
     case 'runs':
-      assertEngineModel('RunPage', value);
+      assertEngineModel<Page<EngineRun>>('RunPage', value);
+      for (const run of value.items) checkRunCursor(run);
+      break;
+    case 'instances':
+      if (
+        !Array.isArray(value.items) ||
+        !(
+          value.nextCursor === null ||
+          (typeof value.nextCursor === 'string' && value.nextCursor !== '')
+        ) ||
+        (value.nextCursor !== null && value.nextCursor === call.cursor)
+      )
+        throw new EngineError('protocol', 'Invalid instance page.');
+      for (const item of value.items) assertEngineModel('Instance', item);
       break;
     case 'history':
       assertEngineModel<Page<EngineEvent>>('EventPage', value);
@@ -425,7 +463,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
         writeCache(data);
       }
       const { path, body, cursor } = route(call);
-      let response;
+      let response: Awaited<ReturnType<typeof jsonRequest>>;
       try {
         response = await jsonRequest(path, body, operationId, cursor);
       } catch (error) {
@@ -479,7 +517,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
   if (revision !== sessionRevision) throw new EngineError('disconnected', 'Connection changed.');
   checkReceipt(call, value);
   checkReadResponse(call, value);
-  if (call.op !== 'validate' && call.op !== 'history') {
+  if (call.op !== 'validate' && call.op !== 'history' && call.op !== 'instances') {
     const current = cache();
     current.cache[JSON.stringify(call)] = value;
     writeCache(current);
@@ -705,7 +743,7 @@ export class EventParser {
           const field = split < 0 ? this.line : this.line.slice(0, split);
           const value = split < 0 ? '' : this.line.slice(split + 1).replace(/^ /, '');
           if (field === 'id') {
-            if (value.length > 256 || /[\x00-\x1f\x7f]/.test(value))
+            if (value.length > 256 || CONTROL_CHARACTERS.test(value))
               throw new EngineError('protocol', 'Invalid event ID.');
             this.id = value;
           }
@@ -713,7 +751,7 @@ export class EventParser {
         }
         this.line = '';
       } else this.line += char;
-      const point = char.codePointAt(0)!;
+      const point = char.codePointAt(0) ?? 0;
       this.size += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
       if (this.size > 256 * 1024) throw new EngineError('limit', 'Engine event exceeds 256 KiB.');
     }

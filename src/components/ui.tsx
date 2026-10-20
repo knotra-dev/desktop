@@ -1,19 +1,19 @@
-import { useEffect, useRef, type ReactNode } from 'react';
 import {
-  X,
-  Workflow,
-  Sparkles,
   Bot,
+  Boxes,
   Code2,
-  Wrench,
   GitBranch,
-  UserRound,
   Layers,
   Repeat2,
-  Boxes,
+  Sparkles,
+  UserRound,
+  Workflow,
+  Wrench,
+  X,
 } from 'lucide-react';
+import { type ReactNode, useEffect, useRef } from 'react';
+import { type Locale, localeTag, type MessageKey, translate, useI18n } from '../lib/i18n';
 import type { NodeKind, NodeStatus, RunStatus } from '../lib/types';
-import { localeTag, translate, useI18n, type Locale, type MessageKey } from '../lib/i18n';
 
 export const nodeMeta = {
   llm: {
@@ -114,8 +114,10 @@ export function Empty({
   action?: ReactNode;
 }) {
   return (
-    <div className="empty">
-      <div className="empty-icon">{icon}</div>
+    <div className="empty flex flex-col items-center justify-center text-center min-h-75 flex-1 px-7.5 py-16.25">
+      <div className="empty-icon w-16 h-16 grid place-items-center rounded-full border border-solid border-line-strong bg-[rgb(var(--accent-rgb)_/_0.039)] text-accent mb-5.5">
+        {icon}
+      </div>
       <h2>{title}</h2>
       <p>{children}</p>
       {action}
@@ -142,7 +144,8 @@ export function Modal({
   closeRef.current = onClose;
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
-    const panel = ref.current!;
+    const panel = ref.current;
+    if (!panel) return;
     const focusables = () => [
       ...panel.querySelectorAll<HTMLElement>(
         'button:not(:disabled), input, textarea, select, [tabindex="0"]',
@@ -171,8 +174,9 @@ export function Modal({
     };
   }, []);
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: Pointer dismissal supplements the dialog Escape handler and accessible close button.
     <div
-      className="modal-backdrop"
+      className="modal-backdrop fixed inset-0 z-20 bg-[rgba(0,_0,_0,_0.72)] flex items-center justify-center p-7.5"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -183,14 +187,19 @@ export function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         tabIndex={-1}
-        className={`modal ${wide ? 'modal-wide' : ''}`}
+        className={`modal bg-surface border border-solid border-line-strong rounded-[24px] max-w-152.5 w-full shadow-[0_35px_100px_#00000070] max-h-[90dvh] overflow-auto outline-none ${wide ? 'modal-wide max-w-215' : ''}`}
       >
         <header>
           <div>
             <h2 id="modal-title">{title}</h2>
             {subtitle ? <p>{subtitle}</p> : null}
           </div>
-          <button className="icon-button" aria-label={t('common.closeDialog')} onClick={onClose}>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label={t('common.closeDialog')}
+            onClick={onClose}
+          >
             <X size={20} />
           </button>
         </header>

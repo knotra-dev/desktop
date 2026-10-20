@@ -1,4 +1,4 @@
-import { record, type Graph, type NodeDefinition, type Port } from './types';
+import { type Graph, type NodeDefinition, type Port, record } from './types';
 
 export function references(value: unknown): string[] {
   if (!value || typeof value !== 'object') return [];

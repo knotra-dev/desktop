@@ -1,12 +1,12 @@
-import { parseDocument } from 'yaml';
-import { validPath } from './validation';
-import { sha256, textBytes, unbase64 } from './bytes';
 import { invoke } from '@tauri-apps/api/core';
-import { desktop } from './native';
+import { parseDocument } from 'yaml';
+import { sha256, textBytes, unbase64 } from './bytes';
 import { examples, initialWorkspaces } from './examples';
+import { type Locale, normalizeLocale, preferredLocale } from './i18n';
+import { desktop } from './native';
 import type { Theme } from './theme';
-import { normalizeLocale, preferredLocale, type Locale } from './i18n';
-import type { DemoRun, Workspace } from './types';
+import { type DemoRun, record, type Workspace } from './types';
+import { validPath } from './validation';
 
 export const STARTER_REVISION = 4;
 
@@ -139,7 +139,8 @@ export async function migrateStarters(state: State): Promise<State> {
 let writes: Promise<void> = Promise.resolve();
 
 export function loadWorkspace(): Promise<State> {
-  return (workspaceSession.initialLoad ??= readWorkspace());
+  workspaceSession.initialLoad ??= readWorkspace();
+  return workspaceSession.initialLoad;
 }
 
 async function readWorkspace(): Promise<State> {
@@ -208,12 +209,7 @@ export function readBackup(text: string): State {
   if (new TextEncoder().encode(text).length > 96 * 1024 * 1024)
     throw new Error('Workspace backup exceeds 96 MiB.');
   const value = JSON.parse(text);
-  if (
-    !value ||
-    value.version !== 1 ||
-    !Array.isArray(value.workspaces) ||
-    !Array.isArray(value.runs)
-  )
+  if (value?.version !== 1 || !Array.isArray(value.workspaces) || !Array.isArray(value.runs))
     throw new Error('Unsupported workspace backup.');
   const ids = new Set<string>();
   for (const workspace of value.workspaces) {
@@ -282,21 +278,24 @@ export function readBackup(text: string): State {
     )
       throw new Error('Invalid demo history in backup.');
     if (
-      !run.events.every(
-        (event: any) =>
-          event &&
-          ['id', 'at', 'message'].every((key) => typeof event[key] === 'string') &&
-          (event.node === undefined || typeof event.node === 'string'),
-      ) ||
-      !run.artifacts.every(
-        (artifact: any) =>
-          artifact &&
+      !run.events.every((event: unknown) => {
+        const value = record(event);
+        return (
+          ['id', 'at', 'message'].every((key) => typeof value[key] === 'string') &&
+          (value.node === undefined || typeof value.node === 'string')
+        );
+      }) ||
+      !run.artifacts.every((artifact: unknown) => {
+        const value = record(artifact);
+        return (
           ['id', 'name', 'content', 'sha256', 'mediaType'].every(
-            (key) => typeof artifact[key] === 'string',
+            (key) => typeof value[key] === 'string',
           ) &&
-          Number.isSafeInteger(artifact.size) &&
-          artifact.size >= 0,
-      )
+          typeof value.size === 'number' &&
+          Number.isSafeInteger(value.size) &&
+          value.size >= 0
+        );
+      })
     )
       throw new Error('Invalid demo outputs or events in backup.');
     runIds.add(run.id);

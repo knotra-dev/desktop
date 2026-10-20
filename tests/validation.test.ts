@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { stringify } from 'yaml';
 import { base64, decodeText, textBytes } from '../src/lib/bytes';
 import { examples } from '../src/lib/examples';
-import { record, type DataSchema, type Pipeline } from '../src/lib/types';
+import { type DataSchema, type Pipeline, record } from '../src/lib/types';
 import { parsePipeline, validatePipeline } from '../src/lib/validation';
 
 function example(id: string) {

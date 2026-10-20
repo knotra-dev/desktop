@@ -832,6 +832,8 @@
   "observe.notStarted": "This step has not started. Its saved definition is available in the Definition tab.",
   "observe.childInstances": "Nested steps",
   "observe.dataTruncated": "The engine limited this data preview. Full artifact bytes remain available for download.",
+  "observe.instancesPartial": "Showing part of this run’s instances.",
+  "observe.loadMoreInstances": "Load more instances",
   "execution.schemaPreviewUnavailable": "This schema contains numbers the app cannot represent exactly. Review the saved schema below and submit the response with the CLI.",
   "observe.routingConditions": "Routing conditions",
   "observe.artifacts": "Created files",

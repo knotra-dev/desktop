@@ -1,15 +1,15 @@
-import { Validator, type Schema } from '@cfworker/json-schema';
-import { LineCounter, isAlias, isMap, isScalar, isSeq, parseAllDocuments, visit } from 'yaml';
+import { type Schema, Validator } from '@cfworker/json-schema';
+import { isAlias, isMap, isScalar, isSeq, LineCounter, parseAllDocuments, visit } from 'yaml';
 import contract from '../../vendor/engine/schemas/knotra-v1.schema.json';
 import { decodeText, textBytes, unbase64 } from './bytes';
 import { graphOrder, nodePorts, nodeReferences, references } from './graph';
 import {
-  record,
   type Diagnostic,
   type Graph,
   type PackageFile,
   type Pipeline,
   type Port,
+  record,
   type Validation,
 } from './types';
 
@@ -25,6 +25,7 @@ export function validPath(path: string): boolean {
   return (
     path.length > 0 &&
     path.length <= 1024 &&
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Package paths must reject backslashes and ASCII control bytes.
     !/[\\\x00-\x1f\x7f]/.test(path) &&
     !/^[a-z]:/i.test(path) &&
     path.split('/').every((p) => p && p !== '.' && p !== '..') &&
@@ -237,9 +238,10 @@ export function validatePipeline(
             error('IMPORT_CYCLE', `Recursive pipeline import: ${path}`, path, 'package');
             continue;
           }
-          if (!fileMap.has(path) || loaded.has(path)) continue;
+          const file = fileMap.get(path);
+          if (!file || loaded.has(path)) continue;
           try {
-            const child = parse(decodeText(fileMap.get(path)!.content), diagnostics, path);
+            const child = parse(decodeText(file.content), diagnostics, path);
             if (!structural.validate(child).valid || record(child).kind !== 'Pipeline') {
               error('IMPORT_INVALID', 'Imported file must be a valid Pipeline.', path, 'package');
               continue;
@@ -336,9 +338,8 @@ export function validatePipeline(
             error('SCOPE_INVALID', `Reference is unavailable in this scope: ${ref}`, refPath);
         }
       }
-      Object.entries(graph.inputs ?? {}).forEach(([id, port]) =>
-        checkPort(port, `${path}/inputs/${id}`),
-      );
+      for (const [id, port] of Object.entries(graph.inputs ?? {}))
+        checkPort(port, `${path}/inputs/${id}`);
       for (const [id, node] of Object.entries(graph.nodes)) {
         const at = `${path}/nodes/${id}`;
         const args = new Set(Object.keys(node.inputs ?? {}));
@@ -397,7 +398,7 @@ export function validatePipeline(
           const names = [...cases.map((c) => c.name), String(record(node.switch).default)];
           if (new Set(names).size !== names.length)
             error('ROUTE_DUPLICATE', 'Switch routes and default must be distinct.', at);
-          cases.forEach((c) => refs(references({ when: c.when }), args, at, 'args'));
+          for (const c of cases) refs(references({ when: c.when }), args, at, 'args');
         }
         if (node.type === 'foreach' || node.type === 'loop') {
           const config = record(node[node.type]);
@@ -475,7 +476,7 @@ export function validatePipeline(
 
 export function validateResponse(pipeline: Pipeline, nodeId: string, value: unknown): string[] {
   const node = pipeline.spec.nodes[nodeId];
-  if (!node || node.type !== 'human') return ['Human request node does not exist.'];
+  if (node?.type !== 'human') return ['Human request node does not exist.'];
   const ports = node.outputs ?? {};
   const object = record(value);
   const errors: string[] = [];

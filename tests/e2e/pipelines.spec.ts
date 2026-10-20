@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { expect, test } from '@playwright/test';
 import { parse } from 'yaml';
 
 const key = 'knotra.workspace.v1';

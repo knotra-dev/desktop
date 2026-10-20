@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parseDocument } from 'yaml';
-import { freshState, loadState, migrateStarters, readBackup, type State } from '../src/lib/storage';
+import { createDemoRun } from '../src/lib/demo';
 import { examples, fromExample } from '../src/lib/examples';
 import { translate } from '../src/lib/i18n';
-import { createDemoRun } from '../src/lib/demo';
+import { freshState, loadState, migrateStarters, readBackup, type State } from '../src/lib/storage';
 
 const key = 'knotra.workspace.v1';
 afterEach(() => vi.unstubAllGlobals());
@@ -86,7 +86,7 @@ describe('workspace loading and starter migration', () => {
       const edited = {
         ...existing,
         id: 'customized',
-        source: existing.source + '\n# Personal changes\n',
+        source: `${existing.source}\n# Personal changes\n`,
       };
       edited.savedSource = edited.source;
       const history = createDemoRun(existing, 'Historical execution must remain');

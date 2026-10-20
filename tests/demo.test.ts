@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { createDemoRun, advanceDemo, respondDemo, finishDemo, cancelDemo } from '../src/lib/demo';
-import { examples, fromExample } from '../src/lib/examples';
 import { sha256, textBytes } from '../src/lib/bytes';
+import { advanceDemo, cancelDemo, createDemoRun, finishDemo, respondDemo } from '../src/lib/demo';
+import { examples, fromExample } from '../src/lib/examples';
+
+const research = examples.find((example) => example.id === 'research')!;
+const local = examples.find((example) => example.id === 'local')!;
 
 describe('guided demo lifecycle', () => {
   it('uses an immutable snapshot, pauses for a specific human request, and hashes the final artifact', async () => {
-    const workspace = fromExample(examples[0]);
+    const workspace = fromExample(research);
     let run = createDemoRun(workspace, 'Test topic');
     const source = run.source;
     workspace.source = 'edited';
@@ -29,7 +32,7 @@ describe('guided demo lifecycle', () => {
     expect(artifact.content).toContain('Ready.');
   });
   it('does not continue a cancelled run or accept its stale review', async () => {
-    let run = createDemoRun(fromExample(examples[0]), 'Cancel');
+    let run = createDemoRun(fromExample(research), 'Cancel');
     run = advanceDemo(advanceDemo(advanceDemo(run)));
     const cancelled = cancelDemo(run);
     expect(advanceDemo(cancelled)).toBe(cancelled);
@@ -38,9 +41,9 @@ describe('guided demo lifecycle', () => {
     expect(() => respondDemo(cancelled, run.requestId!, { feedback: 'late' })).toThrow();
   });
   it('refuses to simulate edited or arbitrary pipelines', () => {
-    const workspace = fromExample(examples[0]);
+    const workspace = fromExample(research);
     workspace.source += '\n# modification';
     expect(() => createDemoRun(workspace, 'x')).toThrow();
-    expect(() => createDemoRun(fromExample(examples[1]), 'x')).toThrow();
+    expect(() => createDemoRun(fromExample(local), 'x')).toThrow('unchanged Research brief');
   });
 });

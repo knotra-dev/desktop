@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { expect, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { parse, parseDocument } from 'yaml';
 import { activeWorkspace, addResearchDemo } from './authoring';

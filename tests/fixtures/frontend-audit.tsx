@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { EngineInboxView } from '../../src/components/EngineInboxView';
-import { EngineArtifactsView } from '../../src/components/EngineArtifactsView';
-import SourceEditor from '../../src/components/SourceEditor';
-import WorkspaceView from '../../src/components/WorkspaceView';
+import SourceEditor from '../../src/components/editor/SourceEditor';
 import { Modal } from '../../src/components/ui';
+import { EngineArtifactsView } from '../../src/features/engine/EngineArtifactsView';
+import { EngineInboxView } from '../../src/features/engine/EngineInboxView';
+import WorkspaceView from '../../src/features/pipelines/WorkspaceView';
 import { connectEngine } from '../../src/lib/engine/client';
 import type { EngineRequest, EngineRun } from '../../src/lib/engine/types';
 import type { EngineController } from '../../src/lib/engine/useEngine';
-import { validatePipeline } from '../../src/lib/validation';
 import type { Workspace } from '../../src/lib/types';
+import { validatePipeline } from '../../src/lib/validation';
 import foreachSource from '../../vendor/engine/contracts/v1/fixtures/positive/foreach/pipeline.yaml?raw';
-import '../../src/styles.css';
+import '../../src/styles/index.css';
 
 const params = new URLSearchParams(location.search);
 const instanceId = (name: string) =>
@@ -128,7 +128,9 @@ function Fixture() {
           onResponseDraftsChange={setResponseDrafts}
         />
       ) : (
-        <button onClick={() => setInboxOpen(true)}>Return to inbox</button>
+        <button type="button" onClick={() => setInboxOpen(true)}>
+          Return to inbox
+        </button>
       );
     case 'artifacts':
       return <EngineArtifactsView engine={engine} />;
@@ -162,7 +164,9 @@ function Fixture() {
     default:
       return (
         <>
-          <button onClick={() => setOpen(true)}>Open resolution</button>
+          <button type="button" onClick={() => setOpen(true)}>
+            Open resolution
+          </button>
           {open ? (
             <Modal title="Resolve unknown outcome" onClose={() => setOpen(false)}>
               <label>

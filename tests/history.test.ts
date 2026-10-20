@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { base64 } from '../src/lib/bytes';
 import {
   appendReplayEvents,
   compareRuns,
@@ -6,7 +7,6 @@ import {
   replayRun,
 } from '../src/lib/engine/history';
 import type { EngineEvent, EngineInstance, EngineRun } from '../src/lib/engine/types';
-import { base64 } from '../src/lib/bytes';
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 9, 4, 12, 0, seconds)).toISOString();
 function run(id = 'run'): EngineRun {
@@ -153,7 +153,7 @@ describe('run comparison', () => {
     function nodes(prefix: string): EngineInstance[] {
       return [
         {
-          id: prefix + 'map',
+          id: `${prefix}map`,
           nodeId: 'map',
           scope: 'pipeline.yaml',
           graphPath: '/nodes/map',
@@ -165,7 +165,7 @@ describe('run comparison', () => {
             nodeId: 'sub',
             scope: 'pipeline.yaml',
             graphPath: '/nodes/map/body/nodes/sub',
-            parentInstanceId: prefix + 'map',
+            parentInstanceId: `${prefix}map`,
             iterationIndex: index,
             status: 'succeeded' as const,
           },

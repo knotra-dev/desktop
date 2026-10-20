@@ -1,6 +1,6 @@
-import { expect, test, type APIResponse, type Page } from '@playwright/test';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { type APIResponse, expect, type Page, test } from '@playwright/test';
 import type { EngineArtifact, EngineRequest, EngineRun } from '../../src/lib/engine/types';
 
 const endpoint = process.env.KNOTRA_E2E_ENDPOINT?.replace(/\/$/, '');
@@ -185,7 +185,7 @@ test('publication waits for approval, preserves editing feedback, and exports th
       human_review: { approved: true, feedback },
       final_text: run.outputs.text,
     });
-    await exportBytes(page, document, Buffer.from(text.trimEnd() + '\n'));
+    await exportBytes(page, document, Buffer.from(`${text.trimEnd()}\n`));
     await exportBytes(page, history, historyBytes);
     expect(errors).toEqual([]);
   } finally {

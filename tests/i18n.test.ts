@@ -1,12 +1,12 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { normalizeLocale, preferredLocale, translate, translateMessage } from '../src/lib/i18n';
+import { freshState, readBackup } from '../src/lib/storage';
 import englishCatalog from '../src/locales/en.json';
 import russianCatalog from '../src/locales/ru.json';
-import { freshState, readBackup } from '../src/lib/storage';
 
 const englishMessages: Record<string, string> = englishCatalog;
 const russianMessages: Record<string, string> = russianCatalog;

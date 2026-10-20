@@ -1,8 +1,8 @@
 import { parseDocument, stringify } from 'yaml';
 import localSource from '../../vendor/engine/examples/local/pipeline.yaml?raw';
 import { base64, textBytes } from './bytes';
+import { type Locale, type MessageKey, translate } from './i18n';
 import type { PackageFile, Pipeline, Workspace } from './types';
-import { translate, type Locale, type MessageKey } from './i18n';
 
 const stringPort = { schema: { type: 'string' } };
 export const researchPipeline: Pipeline = {
@@ -278,7 +278,7 @@ export const examples: Example[] = [
           'artifact-mount': 'shell.artifactMount',
         } as Record<string, MessageKey>
       )[id],
-      source: rawFiles[prefix + 'pipeline.yaml'],
+      source: rawFiles[`${prefix}pipeline.yaml`],
       files: packageFiles(rawFiles, prefix),
     };
   }),

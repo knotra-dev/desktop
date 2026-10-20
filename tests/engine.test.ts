@@ -1,17 +1,18 @@
-import { assertEngineModel } from '../src/lib/engine/validation';
-import { freshState, readBackup } from '../src/lib/storage';
 import { describe, expect, it, vi } from 'vitest';
-import { enginePackage } from '../src/lib/engine/package';
 import {
-  EventParser,
-  parseEngineJSON,
   connectEngine,
   disconnectEngine,
-  engineCall,
+  EventParser,
   engineCache,
+  engineCall,
   engineSessionKey,
   eventWindow,
+  parseEngineJSON,
 } from '../src/lib/engine/client';
+import { enginePackage } from '../src/lib/engine/package';
+import type { EngineCache } from '../src/lib/engine/types';
+import { assertEngineModel } from '../src/lib/engine/validation';
+import { freshState, readBackup } from '../src/lib/storage';
 
 describe('durable event framing', () => {
   it('handles arbitrary boundaries, CRLF, multiline data and heartbeat comments', () => {
@@ -359,8 +360,8 @@ it('does not overwrite the last valid cached page with a malformed read model', 
 
 it('does not expose an old-session receipt after reconnect during cache reconciliation', async () => {
   vi.resetModules();
-  let release!: (value: { cache: {}; pending: [] }) => void;
-  const heldCache = new Promise<{ cache: {}; pending: [] }>((resolve) => {
+  let release!: (value: EngineCache) => void;
+  const heldCache = new Promise<EngineCache>((resolve) => {
     release = resolve;
   });
   const empty = { cache: {}, pending: [] as [] };
@@ -388,6 +389,7 @@ it('does not expose an old-session receipt after reconnect during cache reconcil
   }));
   try {
     const { useEngine } = await import('../src/lib/engine/useEngine');
+    // biome-ignore lint/correctness/useHookAtTopLevel: React hooks are mocked to isolate command reconciliation.
     const engine = useEngine(vi.fn());
     await engine.connect('http://localhost:8080');
     const receipt = engine.command({

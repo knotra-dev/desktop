@@ -36,15 +36,15 @@ const messagePatterns = Object.entries(en)
   .filter(([key, value]) => key.startsWith('messages.') && /\{\w+\}/.test(value))
   .map(([key, value]) => {
     const names: string[] = [];
-    const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapePattern = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     let offset = 0;
     let pattern = '^';
     for (const match of value.matchAll(/\{(\w+)\}/g)) {
-      pattern += escape(value.slice(offset, match.index)) + '([\\s\\S]*?)';
+      pattern += `${escapePattern(value.slice(offset, match.index))}([\\s\\S]*?)`;
       names.push(match[1]);
-      offset = match.index! + match[0].length;
+      offset = (match.index ?? 0) + match[0].length;
     }
-    return { key, names, pattern: new RegExp(pattern + escape(value.slice(offset)) + '$') };
+    return { key, names, pattern: new RegExp(`${pattern}${escapePattern(value.slice(offset))}$`) };
   });
 
 // Only use this adapter for errors produced by frontend validators. Engine messages

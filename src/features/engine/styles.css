@@ -1,0 +1,397 @@
+.engine-banner > .text-button {
+  margin-left: auto;
+}
+.engine-banner .form-error,
+.pending-operations {
+  flex-basis: 100%;
+}
+.engine-instance-list article {
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+}
+.engine-instance-list article code,
+.engine-instance-list article small {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.engine-instance-list article > .button {
+  margin-top: 12px;
+}
+.engine-resource-list code,
+.engine-resource-list span,
+.engine-resource-list small {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.main-content.execution-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.main-content.execution-view > .page {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+.main-content.execution-view > .run-detail {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+.engine-run-content .cm-editor {
+  height: 100%;
+}
+.execution-counts,
+.execution-counts > span,
+.execution-connection,
+.execution-toolbar-actions,
+.execution-scope-picker,
+.execution-node-meta,
+.execution-node-meta > span,
+.execution-inspector-heading small,
+.execution-inspector-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.execution-connection.is-connected {
+  color: var(--accent);
+}
+.execution-toolbar .button {
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 11px;
+}
+.execution-toolbar .button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.07);
+}
+.execution-scope-picker select {
+  max-width: min(360px, 35vw);
+  font-size: 11px;
+  padding: 5px;
+  background: var(--surface);
+  color: var(--text);
+  border: 0;
+}
+.execution-node-caption small {
+  color: var(--text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  font-size: 9px;
+}
+.flow-card.execution-node-running {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.14);
+  animation: execution-pulse 2.2s ease-in-out infinite;
+}
+.flow-card.execution-node-failed {
+  border-color: var(--danger);
+}
+.flow-card.execution-node-waiting_human,
+.flow-card.execution-node-waiting_resolution {
+  border-color: var(--amber);
+}
+.flow-card.execution-node-skipped {
+  opacity: 0.5;
+}
+.execution-inspector-heading small {
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+.execution-inspector-heading h2 {
+  margin: 6px 0;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.execution-detail-tabs button {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
+}
+.execution-detail-tabs button.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.execution-inspector-body h3 {
+  font-size: 11px;
+  margin: 20px 0 10px;
+}
+.execution-inspector-body > .button {
+  margin: 6px 0 12px;
+}
+.execution-wait-reason > div {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.execution-current small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  margin-bottom: 4px;
+}
+.execution-current strong {
+  font-size: 11px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.execution-attempt-picker select {
+  max-width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 6px;
+  border-radius: 5px;
+  font-size: 10px;
+}
+.execution-event > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+.execution-event > div {
+  min-width: 0;
+  flex: 1;
+}
+.execution-event strong {
+  font-size: 11px;
+  line-height: 1.5;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.execution-event small {
+  display: block;
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.execution-operation.is-active {
+  border-color: rgb(var(--accent-rgb) / 0.5);
+}
+.execution-operation-heading > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+.execution-operation-heading strong {
+  display: block;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.execution-operation-heading small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 9px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+.execution-response pre,
+.execution-data-block pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  max-height: 340px;
+  overflow: auto;
+}
+.execution-response pre {
+  color: var(--text-secondary);
+}
+.execution-data-block > button:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  padding: 4px 0;
+  color: var(--text-secondary);
+}
+.execution-data-block pre {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.execution-data-block .small {
+  font-size: 10px;
+}
+.expanded {
+  transform: rotate(90deg);
+}
+.execution-children > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.execution-children > button > span:first-child {
+  flex: 1;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.execution-children small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+.execution-artifact > span {
+  flex: 1;
+  min-width: 0;
+}
+.execution-artifact strong {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.execution-artifact small {
+  display: block;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-size: 9px;
+}
+.execution-waterfall-heading > span {
+  color: var(--text-muted);
+}
+.execution-waterfall-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.execution-waterfall-row small {
+  text-align: right;
+  color: var(--text-muted);
+  font-size: 9px;
+}
+.execution-waterfall-row:hover,
+.execution-waterfall-row.active {
+  background: var(--surface-active);
+}
+.execution-waterfall-track i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  min-width: 3px;
+  border-radius: 3px;
+  background: currentColor;
+  opacity: 0.75;
+}
+@keyframes execution-pulse {
+  50% {
+    box-shadow: 0 0 0 5px rgb(var(--accent-rgb) / 0.035);
+    opacity: 0.72;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-card.execution-node-running,
+  .execution-live-dot,
+  .execution-text-cursor {
+    animation: none;
+  }
+  .execution-observer .react-flow__edge.animated path {
+    animation: none;
+  }
+}
+@media (max-width: 1100px) {
+  .execution-counts {
+    gap: 10px;
+  }
+  .execution-inspector {
+    width: 340px;
+  }
+  .engine-observer-content {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
+  .execution-counts .execution-summary-label {
+    display: none;
+  }
+}
+@media (max-width: 780px) {
+  .execution-workspace.has-inspector > .execution-canvas {
+    display: none;
+  }
+  .execution-inspector {
+    width: 100%;
+    border-left: 0;
+  }
+  .execution-scope-picker select {
+    max-width: 200px;
+  }
+  .execution-waterfall-row {
+    grid-template-columns: 95px 1fr 50px;
+  }
+}
+.execution-operation.is-failed {
+  border-color: var(--danger);
+}
+.execution-operation.is-failed .execution-operation-icon {
+  color: var(--danger);
+}
+.execution-observer .state-failed {
+  color: var(--danger);
+}
+.execution-observer .state-waiting_human,
+.execution-observer .state-waiting_resolution,
+.execution-observer .state-retry_wait {
+  color: var(--amber);
+}
+.execution-observer .state-running {
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .execution-observer .state-running {
+    animation: none;
+  }
+}
+.execution-attention > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  color: var(--amber);
+}
+.execution-attention > div > span {
+  flex: 1;
+  min-width: 0;
+}
+.execution-attention strong {
+  display: block;
+  color: var(--text);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.execution-attention small {
+  display: block;
+  font-size: 10px;
+  margin-top: 3px;
+}
+.execution-attention .button {
+  font-size: 11px;
+}
+.execution-state-history > summary {
+  font-size: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.execution-state-history .execution-event {
+  margin-top: 10px;
+}

@@ -1,6 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { expect, type Page, test } from '@playwright/test';
 import type { EngineArtifact, EngineEvent, EngineRun } from '../../src/lib/engine/types';
 import { record } from '../../src/lib/types';
 

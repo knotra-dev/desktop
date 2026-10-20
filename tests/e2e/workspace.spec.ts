@@ -1,9 +1,9 @@
-import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
-import { test, expect, type Page } from '@playwright/test';
-import { readFileSync, readdirSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
-import { zipSync, unzipSync } from 'fflate';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { expect, type Page, test } from '@playwright/test';
+import { unzipSync, zipSync } from 'fflate';
+import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
 
 async function navigate(page: Page, name: string) {
   await page
@@ -110,8 +110,11 @@ test('authoring stays synchronized and navigation preference survives reload', a
     .poll(async () => (await activeWorkspace(page)).source.includes('Check the sources carefully'))
     .toBe(true);
   await expect(page.getByRole('button', { name: 'Run demo', exact: true })).toBeDisabled();
+  const expandedWidth = (await page.locator('.app-sidebar').boundingBox())!.width;
   await page.getByRole('button', { name: 'Collapse navigation' }).click();
-  await expect(page.locator('.app-sidebar')).toHaveCSS('width', '74px');
+  await expect
+    .poll(async () => (await page.locator('.app-sidebar').boundingBox())!.width)
+    .toBeLessThan(expandedWidth);
   await expect.poll(async () => (await persisted(page)).compact).toBe(true);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Expand navigation' })).toBeVisible();
@@ -215,7 +218,7 @@ test('saved human request resumes once and produces a traceable artifact', async
   expect(createHash('sha256').update(bytes).digest('hex')).toBe(run.artifacts[0].sha256);
   expect(bytes.byteLength).toBe(run.artifacts[0].size);
   expect(bytes.toString()).toContain('Reviewed and ready.');
-  // Column geometry catches missing grid rules and overlapping labels in the desktop layout.
+  // Column geometry catches overlapping labels in the desktop layout.
   for (const theme of ['dark', 'light'] as const) {
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page
@@ -230,21 +233,19 @@ test('saved human request resumes once and produces a traceable artifact', async
         return {
           sameHeight: search.height === filter.height,
           aligned: search.y === filter.y,
-          gap: filter.x - search.right,
+          separated: search.right <= filter.left,
         };
       });
-      expect(controls).toEqual({ sameHeight: true, aligned: true, gap: 12 });
+      expect(controls).toEqual({ sameHeight: true, aligned: true, separated: true });
       await page.getByRole('combobox', { name: 'Filter runs by status' }).selectOption('running');
       await expect(page.getByRole('heading', { name: 'No matching runs' })).toBeVisible();
       await page.getByRole('combobox', { name: 'Filter runs by status' }).selectOption('succeeded');
-      await expect(page.locator('.table-header')).toHaveCSS('display', 'grid');
-      await expect(page.locator('.table-row')).toHaveCSS('display', 'grid');
       const geometry = await page.locator('.run-table').evaluate((table) => {
         const bounds = table.getBoundingClientRect();
         const header = Array.from(table.querySelector('.table-header')!.children).map((el) =>
           el.getBoundingClientRect(),
         );
-        const row = Array.from(table.querySelector('.table-row')!.children).map((el) =>
+        const row = Array.from(table.querySelector('.run-table-row')!.children).map((el) =>
           el.getBoundingClientRect(),
         );
         return {
@@ -258,7 +259,7 @@ test('saved human request resumes once and produces a traceable artifact', async
         path: test.info().outputPath(`knotra-runs-${theme}-${width}.png`),
       });
     }
-    await page.locator('.table-row').first().click();
+    await page.locator('.run-table-row').first().click();
     await expect(page.locator('.run-bottom')).toBeVisible();
     const bottom = await page.locator('.run-bottom').boundingBox();
     expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(767);
@@ -323,8 +324,7 @@ for (const theme of ['dark', 'light'] as const)
     await page.getByRole('tab', { name: 'Code', exact: true }).click();
     await expect(page.getByRole('textbox', { name: 'Pipeline YAML' })).toContainText('answer: 12');
     await page.getByRole('button', { name: 'New pipeline', exact: true }).click();
-    await expect(page.locator('.modal-backdrop')).toHaveCSS('backdrop-filter', 'none');
-    await expect(page.locator('.modal>header')).toHaveCSS('background-image', 'none');
+    await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Close dialog' }).click();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });

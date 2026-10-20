@@ -1,5 +1,5 @@
 import { dependencies, nodePorts } from './graph';
-import { record, type Graph, type Port } from './types';
+import { type Graph, type Port, record } from './types';
 
 export interface PortConnection {
   source: string;
@@ -38,10 +38,11 @@ export function sources(graph: Graph, imports?: Map<string, Graph>): SourceOptio
 
 export function compatible(source: Port, target: Port): boolean {
   if (!!source.artifact !== !!target.artifact) return false;
-  if (source.artifact && target.artifact)
+  const artifact = target.artifact;
+  if (source.artifact && artifact)
     return (
-      !!source.artifact.collection === !!target.artifact.collection &&
-      source.artifact.mediaTypes.every((type) => target.artifact!.mediaTypes.includes(type))
+      !!source.artifact.collection === !!artifact.collection &&
+      source.artifact.mediaTypes.every((type) => artifact.mediaTypes.includes(type))
     );
   const a = record(source.schema).type;
   const b = record(target.schema).type;

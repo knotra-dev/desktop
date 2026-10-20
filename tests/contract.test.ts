@@ -1,15 +1,15 @@
-import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { base64, textBytes } from '../src/lib/bytes';
 import { examples, RESEARCH_SOURCE } from '../src/lib/examples';
+import { graphOrder, nodePorts } from '../src/lib/graph';
 import {
   parsePipeline,
   validatePipeline,
   validateResponse,
   validPath,
 } from '../src/lib/validation';
-import { graphOrder, nodePorts } from '../src/lib/graph';
-import { base64, textBytes } from '../src/lib/bytes';
 
 const fixture = (path: string) =>
   readFileSync(resolve('vendor/engine/contracts/v1/fixtures', path), 'utf8');
@@ -28,22 +28,25 @@ describe('repository contracts in the desktop workbench', () => {
     const manifest = JSON.parse(fixture('manifest.json'));
     for (const entry of manifest.cases)
       if (entry.expected.structural === 'reject') {
-        expect(errors(fixture(entry.document)).length, entry.id).toBeGreaterThan(0);
+        expect(errors(fixture(entry.document)), entry.id).toEqual(
+          expect.arrayContaining([expect.objectContaining({ layer: 'structural' })]),
+        );
       }
   });
-  for (const name of [
-    'unresolved-node',
-    'graph-cycle',
-    'invalid-default-value',
-    'scope-parent-node-in-body',
-    'foreach-over-non-array',
-    'optional-foreach-export',
-    'loop-reserved-export',
-    'loop-state-outside-loop',
-    'json-input-mount',
+  for (const [name, code] of [
+    ['unresolved-node', 'REFERENCE_UNRESOLVED'],
+    ['graph-cycle', 'GRAPH_CYCLE'],
+    ['invalid-default-value', 'DEFAULT_INVALID'],
+    ['scope-parent-node-in-body', 'REFERENCE_UNRESOLVED'],
+    ['foreach-over-non-array', 'FOREACH_TYPE'],
+    ['optional-foreach-export', 'FOREACH_EXPORT'],
+    ['loop-reserved-export', 'LOOP_EXPORT'],
+    ['loop-state-outside-loop', 'SCOPE_INVALID'],
   ])
     it(`diagnoses ${name}`, () => {
-      expect(errors(fixture(`negative/${name}.yaml`)).length).toBeGreaterThan(0);
+      expect(errors(fixture(`negative/${name}.yaml`))).toEqual(
+        expect.arrayContaining([expect.objectContaining({ code, layer: 'semantic' })]),
+      );
     });
   for (const source of [
     'a: 1\na: 2',

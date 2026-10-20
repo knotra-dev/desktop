@@ -1,6 +1,6 @@
 import { base64, textBytes } from '../bytes';
-import type { Workspace } from '../types';
 import { allowedFiles } from '../package';
+import type { Workspace } from '../types';
 import type { EnginePackage } from './types';
 
 // Drafts keep the editable source separately; the wire format carries every file.

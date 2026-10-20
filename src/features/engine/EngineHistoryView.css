@@ -1,0 +1,112 @@
+.history-toolbar strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.history-toolbar p,
+.history-load,
+.history-cursor {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.history-toolbar p {
+  margin: 6px 0 0;
+}
+.history-transport input {
+  flex: 1;
+  min-width: 80px;
+  accent-color: var(--accent);
+}
+.history-load > span {
+  margin-right: auto;
+}
+.history-scope select {
+  flex: 1;
+  min-width: 0;
+  padding: 9px;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.history-inspector h4,
+.history-diff h4 {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 16px 0 8px;
+}
+.history-comparison-heading > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.history-comparison-heading small {
+  flex-basis: 100%;
+  color: var(--text-muted);
+}
+.history-comparison-heading span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.history-change-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.history-change-section > summary > span {
+  float: right;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.history-change-section > p {
+  font-size: 12px;
+}
+.history-value-change > summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.history-diff > div {
+  min-width: 0;
+}
+.history-node-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.history-node-row > div:first-child {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.history-node-row small {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.history-node-row > div > span {
+  font-size: 11px;
+}
+@media (max-width: 1100px) {
+  .history-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-inspector {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    max-height: 360px;
+  }
+}
+@media (max-width: 680px) {
+  .history-diff {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .history-toolbar {
+    align-items: flex-start;
+  }
+  .history-transport {
+    flex-wrap: wrap;
+  }
+}

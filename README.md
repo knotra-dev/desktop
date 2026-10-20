@@ -52,7 +52,7 @@ Starter text is localized when a draft is created and preserved thereafter. Cata
 ## Checks and build
 
 ```sh
-bun run format:check
+bun run check
 bun run test
 bun run build
 bunx playwright install chromium
@@ -61,6 +61,9 @@ cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo test --locked --manifest-path src-tauri/Cargo.toml
 bun run desktop:build
 ```
+
+Biome checks formatting, imports and React lint rules. Use `bun run format` to format files,
+`bun run lint` for lint checks, and `bun run check` for the combined CI check.
 
 Default browser tests use a contract fixture. Real-engine acceptance needs a development engine with
 the bundled `local` profile and preview CORS enabled; tests create definitions/runs/artifacts:

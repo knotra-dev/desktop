@@ -1,5 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
 import { createServer, type Server, type ServerResponse } from 'node:http';
+import { expect, type Page, test } from '@playwright/test';
 import type { EngineEvent, EngineRun } from '../../src/lib/engine/types';
 
 test.use({ locale: 'en-US' });
@@ -239,7 +239,7 @@ async function openRun(page: Page) {
     .getByRole('navigation', { name: 'Main navigation' })
     .getByRole('button', { name: 'Runs', exact: true })
     .click();
-  await page.locator('.table-row').filter({ hasText: 'Current history fixture' }).click();
+  await page.locator('.run-table-row').filter({ hasText: 'Current history fixture' }).click();
 }
 
 test('replays paginated history and hides future outputs when rewound', async ({

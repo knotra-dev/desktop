@@ -4,8 +4,8 @@ import {
   duration,
   executionGraphs,
   graphInstances,
-  instanceArtifacts,
   graphStatuses,
+  instanceArtifacts,
   mergeEvents,
   observationWindow,
 } from '../src/lib/engine/observation';
