@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/knotra-dev/engine",
-  "commit": "a48484ea21e80bcef5788d8e864c9aab1da877c3",
+  "commit": "0b8c1dfa6e18fed4ad3f48e9033f7501e48f426c",
   "sha256": {
     "contracts/v1/fixtures/manifest.json": "de55f7443d650623c243161143dd7c4dcc1e757a6d64dc06c70bfa5177e939b2",
     "contracts/v1/fixtures/negative/artifact-default.yaml": "3011004408a41b67bbdefef9d7d22cf8ea094f16557b06d4510a4893a67d01a0",
