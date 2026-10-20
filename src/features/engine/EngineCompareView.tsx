@@ -1,10 +1,10 @@
 import { ArrowRight } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Status, time } from '../../components/ui';
 import { engineCall, engineError } from '../../lib/engine/client';
 import { compareRuns, type ValueChange } from '../../lib/engine/history';
 import { durationLabel } from '../../lib/engine/observation';
-import type { EngineRun } from '../../lib/engine/types';
+import type { EngineInstance, EngineRun, Page } from '../../lib/engine/types';
 import { useI18n } from '../../lib/i18n';
 import { HistoryPreview } from './HistoryPreview';
 
@@ -80,8 +80,9 @@ export function EngineCompareView({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [limit, setLimit] = useState(100);
+  const revision = useRef(0);
   useEffect(() => {
-    let stopped = false;
+    const generation = ++revision.current;
     setError('');
     setBusy(false);
     if (!connected) return;
@@ -90,19 +91,47 @@ export function EngineCompareView({
       setBusy(true);
       void engineCall<{ run: EngineRun }>({ op: 'run', runId: selected })
         .then((result) => {
-          if (!stopped) setBefore(result.run);
+          if (generation === revision.current) setBefore(result.run);
         })
         .catch((cause) => {
-          if (!stopped) setError(engineError(cause).message);
+          if (generation === revision.current) setError(engineError(cause).message);
         })
         .finally(() => {
-          if (!stopped) setBusy(false);
+          if (generation === revision.current) setBusy(false);
         });
     }
     return () => {
-      stopped = true;
+      revision.current++;
     };
   }, [selected, connected]);
+  async function loadBaselineInstances() {
+    if (!connected || !before?.instancesNextCursor || busy) return;
+    const generation = revision.current;
+    const cursor = before.instancesNextCursor;
+    setBusy(true);
+    setError('');
+    try {
+      const page = await engineCall<Page<EngineInstance>>({
+        op: 'instances',
+        runId: before.id,
+        cursor,
+      });
+      if (generation !== revision.current) return;
+      setBefore((current) =>
+        current?.id === before.id && current.instancesNextCursor === cursor
+          ? {
+              ...current,
+              instances: [...current.instances, ...page.items],
+              instancesNextCursor: page.nextCursor ?? undefined,
+            }
+          : current,
+      );
+    } catch (cause) {
+      if (generation === revision.current) setError(engineError(cause).message);
+    } finally {
+      if (generation === revision.current) setBusy(false);
+    }
+  }
   const comparison = useMemo(() => (before ? compareRuns(before, run) : undefined), [before, run]);
   const rows = comparison?.instances ?? [];
   return (
@@ -122,6 +151,8 @@ export function EngineCompareView({
           aria-label={t('history.baseline')}
           value={selected}
           onChange={(event) => {
+            revision.current++;
+            setBefore(undefined);
             setSelected(event.target.value);
             setLimit(100);
           }}
@@ -135,6 +166,16 @@ export function EngineCompareView({
           ))}
         </select>
       </label>
+      {before?.instancesNextCursor && (
+        <button
+          type="button"
+          className="button"
+          disabled={!connected || busy}
+          onClick={() => void loadBaselineInstances()}
+        >
+          {t('history.loadMoreBaselineInstances')}
+        </button>
+      )}
       {!connected && (
         <p className="history-notice border border-solid border-line bg-surface-raised rounded-[7px] text-[12px] wrap-anywhere px-3 py-2.5">
           {t('history.connect')}
@@ -197,69 +238,73 @@ export function EngineCompareView({
           <Changes label={t('history.inputs')} changes={comparison.inputs} />
           <Changes label={t('history.inputArtifacts')} changes={comparison.inputArtifacts} />
           <Changes label={t('history.outputs')} changes={comparison.outputs} />
-          <details
-            className="history-change-section border border-solid border-line rounded-[9px] p-3.5"
-            open
-          >
-            <summary>
-              {t('history.nodeComparison')}
-              <span>
-                {t('history.changedCount', {
-                  count: rows.filter((row) => row.changed).length,
-                  total: rows.length,
-                })}
-              </span>
-            </summary>
-            <p className="muted text-muted">{t('history.nodeExplanation')}</p>
-            <div className="history-node-table">
-              <div className="history-node-header grid grid-cols-[minmax(160px,_1.6fr)_minmax(90px,_1fr)_minmax(90px,_1fr)] gap-3.5 text-muted text-[11px] px-2 py-3">
-                <span>{t('history.node')}</span>
-                <span>{t('history.before')}</span>
-                <span>{t('history.after')}</span>
-              </div>
-              {rows.slice(0, limit).map((row) => (
-                <div
-                  className={`history-node-row grid grid-cols-[minmax(160px,_1.6fr)_minmax(90px,_1fr)_minmax(90px,_1fr)] gap-3.5 border-t border-solid border-t-line px-2 py-3 ${row.changed ? 'history-node-changed bg-[rgb(var(--accent-rgb)_/_0.035)]' : ''}`}
-                  key={`${row.key}:${row.before?.id ?? ''}:${row.after?.id ?? ''}`}
-                >
-                  <div>
-                    <strong>{row.after?.nodeId ?? row.before?.nodeId}</strong>
-                    <small>{row.key}</small>
-                    {row.ambiguous && <small>{t('history.ambiguous')}</small>}
-                  </div>
-                  <div>
-                    {row.before ? (
-                      <>
-                        <Status status={row.before.status} />
-                        <span>{durationLabel(row.beforeDuration)}</span>
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </div>
-                  <div>
-                    {row.after ? (
-                      <>
-                        <Status status={row.after.status} />
-                        <span>{durationLabel(row.afterDuration)}</span>
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </div>
+          {!comparison.instancesComplete ? (
+            <p role="status">{t('history.instancesIncomplete')}</p>
+          ) : (
+            <details
+              className="history-change-section border border-solid border-line rounded-[9px] p-3.5"
+              open
+            >
+              <summary>
+                {t('history.nodeComparison')}
+                <span>
+                  {t('history.changedCount', {
+                    count: rows.filter((row) => row.changed).length,
+                    total: rows.length,
+                  })}
+                </span>
+              </summary>
+              <p className="muted text-muted">{t('history.nodeExplanation')}</p>
+              <div className="history-node-table">
+                <div className="history-node-header grid grid-cols-[minmax(160px,_1.6fr)_minmax(90px,_1fr)_minmax(90px,_1fr)] gap-3.5 text-muted text-[11px] px-2 py-3">
+                  <span>{t('history.node')}</span>
+                  <span>{t('history.before')}</span>
+                  <span>{t('history.after')}</span>
                 </div>
-              ))}
-            </div>
-            {rows.length > limit && (
-              <button
-                type="button"
-                className="button small text-[11px]"
-                onClick={() => setLimit((value) => value + 100)}
-              >
-                {t('history.showMore')}
-              </button>
-            )}
-          </details>
+                {rows.slice(0, limit).map((row) => (
+                  <div
+                    className={`history-node-row grid grid-cols-[minmax(160px,_1.6fr)_minmax(90px,_1fr)_minmax(90px,_1fr)] gap-3.5 border-t border-solid border-t-line px-2 py-3 ${row.changed ? 'history-node-changed bg-[rgb(var(--accent-rgb)_/_0.035)]' : ''}`}
+                    key={`${row.key}:${row.before?.id ?? ''}:${row.after?.id ?? ''}`}
+                  >
+                    <div>
+                      <strong>{row.after?.nodeId ?? row.before?.nodeId}</strong>
+                      <small>{row.key}</small>
+                      {row.ambiguous && <small>{t('history.ambiguous')}</small>}
+                    </div>
+                    <div>
+                      {row.before ? (
+                        <>
+                          <Status status={row.before.status} />
+                          <span>{durationLabel(row.beforeDuration)}</span>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </div>
+                    <div>
+                      {row.after ? (
+                        <>
+                          <Status status={row.after.status} />
+                          <span>{durationLabel(row.afterDuration)}</span>
+                        </>
+                      ) : (
+                        '—'
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {rows.length > limit && (
+                <button
+                  type="button"
+                  className="button small text-[11px]"
+                  onClick={() => setLimit((value) => value + 100)}
+                >
+                  {t('history.showMore')}
+                </button>
+              )}
+            </details>
+          )}
         </>
       )}
     </section>

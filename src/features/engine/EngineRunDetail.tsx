@@ -282,17 +282,21 @@ export function EngineRunDetail({
         className={`engine-run-content flex-1 min-h-50 overflow-auto mt-4 mb-5 mx-7.5 ${tab === 'graph' ? 'engine-observer-content overflow-hidden flex mt-3 min-h-75' : ''}`}
       >
         {tab === 'graph' ? (
-          <EngineExecutionView
-            run={run}
-            events={events}
-            connection={streamLabel}
-            connected={!!engine.info}
-            onReview={onReview}
-            onResolve={(id) => {
-              setResolutionError('');
-              setResolution(id);
-            }}
-          />
+          run.instancesNextCursor ? (
+            <p role="status">{t('observe.graphNeedsInstances')}</p>
+          ) : (
+            <EngineExecutionView
+              run={run}
+              events={events}
+              connection={streamLabel}
+              connected={!!engine.info}
+              onReview={onReview}
+              onResolve={(id) => {
+                setResolutionError('');
+                setResolution(id);
+              }}
+            />
+          )
         ) : tab === 'replay' ? (
           <EngineReplayView run={run} connected={!!engine.info} onLive={() => setTab('graph')} />
         ) : tab === 'compare' ? (

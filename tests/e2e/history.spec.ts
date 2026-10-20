@@ -1,6 +1,6 @@
 import { createServer, type Server, type ServerResponse } from 'node:http';
 import { expect, type Page, test } from '@playwright/test';
-import type { EngineEvent, EngineRun } from '../../src/lib/engine/types';
+import type { EngineEvent, EngineInstance, EngineRun } from '../../src/lib/engine/types';
 
 test.use({ locale: 'en-US' });
 let server: Server;
@@ -311,4 +311,98 @@ test('compares saved prompts, outputs and node statuses without issuing commands
   await page.screenshot({ path: testInfo.outputPath('run-comparison.png'), fullPage: true });
   expect(mutations).toEqual([]);
   expect(errors).toEqual([]);
+});
+
+test('loads baseline instance pages explicitly and ignores a stale selection response', async ({
+  page,
+}) => {
+  const instances = (prefix: string): EngineInstance[] =>
+    Array.from({ length: 200 }, (_, index) => ({
+      id: `${prefix}-${String(index).padStart(3, '0')}`,
+      nodeId: `step${index}`,
+      scope: 'pipeline.yaml',
+      status: 'succeeded',
+    }));
+  const currentInstances = instances('current'),
+    baselineInstances = instances('earlier');
+  const currentPage = {
+    ...current,
+    instances: currentInstances.slice(0, 100),
+    instancesNextCursor: currentInstances[99].id,
+  };
+  const baselinePage = {
+    ...earlier,
+    instances: baselineInstances.slice(0, 100),
+    instancesNextCursor: baselineInstances[99].id,
+  };
+  const requests: string[] = [];
+  let hold = false;
+  let release: (() => void) | undefined;
+  await page.route(`${endpoint}/v1/runs**`, async (route) => {
+    const url = new URL(route.request().url());
+    let result: unknown;
+    if (url.pathname === '/v1/runs')
+      result = { items: [currentPage, baselinePage], nextCursor: null };
+    else if (url.pathname === '/v1/runs/earlier-run') result = { run: baselinePage };
+    else if (url.pathname.endsWith('/instances')) {
+      const baseline = url.pathname.includes('earlier-run');
+      requests.push(`${baseline ? 'baseline' : 'current'}:${url.searchParams.get('cursor')}`);
+      if (baseline && hold)
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      result = {
+        items: (baseline ? baselineInstances : currentInstances).slice(100),
+        nextCursor: null,
+      };
+    } else return route.continue();
+    await route.fulfill({ json: result, headers: { 'Access-Control-Allow-Origin': '*' } });
+  });
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint);
+  await page.getByRole('button', { name: 'Save address' }).click();
+  await page.getByRole('button', { name: 'Connect engine' }).click();
+  await expect(page.getByText('history-engine · knotra.desktop/1')).toBeVisible();
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('button', { name: 'Runs', exact: true })
+    .click();
+  await page.getByRole('button', { name: /^Current history fixture/ }).click();
+  await page
+    .locator('.underline-tabs')
+    .getByRole('button', { name: 'Compare runs', exact: true })
+    .click();
+  const selection = page.getByLabel('Compare with', { exact: true });
+  await selection.selectOption('earlier-run');
+  const baselineButton = page.getByRole('button', {
+    name: 'Load more baseline instances',
+    exact: true,
+  });
+  await expect(baselineButton).toBeVisible();
+  expect(requests).toEqual([]);
+  await expect(page.locator('.history-node-row')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Load more instances', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Load more instances', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.locator('.history-node-row')).toHaveCount(0);
+  await baselineButton.click();
+  await expect(page.getByText('0 changed of 200', { exact: true })).toBeVisible();
+  expect(requests).toEqual(['current:current-099', 'baseline:earlier-099']);
+  await selection.selectOption('');
+  await selection.selectOption('earlier-run');
+  await expect(baselineButton).toBeVisible();
+  hold = true;
+  const response = page.waitForResponse((response) =>
+    response.url().includes('/earlier-run/instances'),
+  );
+  await baselineButton.click();
+  await expect.poll(() => release !== undefined).toBe(true);
+  await selection.selectOption('');
+  release?.();
+  await response;
+  await expect(page.locator('.history-comparison-heading')).toHaveCount(0);
+  await expect(page.locator('.history-node-row')).toHaveCount(0);
+  await expect(baselineButton).toHaveCount(0);
+  expect(mutations).toEqual([]);
 });

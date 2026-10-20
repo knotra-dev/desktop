@@ -269,4 +269,50 @@ describe('run comparison', () => {
     expect(changes.files).toHaveLength(1);
     expect(changes.outputs).toHaveLength(1);
   });
+
+  it('does not invent node changes when either identical terminal run has unloaded pages', () => {
+    for (const [partialBefore, partialAfter] of [
+      [true, false],
+      [false, true],
+      [true, true],
+    ]) {
+      const before = run('before'),
+        after = run('after');
+      const nodes = (prefix: string): EngineInstance[] =>
+        Array.from({ length: 200 }, (_, index) => ({
+          id: `${prefix}-${index}`,
+          nodeId: `step${index}`,
+          scope: 'pipeline.yaml',
+          status: 'succeeded',
+        }));
+      before.instances = nodes('old');
+      after.instances = nodes('new');
+      const completeBefore = before.instances,
+        completeAfter = after.instances;
+      expect(compareRuns(before, after).instances.every((node) => !node.changed)).toBe(true);
+      if (partialBefore) {
+        before.instances = before.instances.slice(0, 100);
+        before.instancesNextCursor = before.instances.at(-1)?.id;
+      }
+      if (partialAfter) {
+        after.instances = after.instances.slice(0, 100);
+        after.instancesNextCursor = after.instances.at(-1)?.id;
+      }
+      after.outputs = { answer: 'root output changed' };
+      const comparison = compareRuns(before, after);
+      expect(comparison.instancesComplete).toBe(false);
+      expect(comparison.instances).toEqual([]);
+      expect(comparison.outputs).toHaveLength(1);
+      expect(comparison.source).toEqual([]);
+      before.instances = [...before.instances, ...completeBefore.slice(before.instances.length)];
+      after.instances = [...after.instances, ...completeAfter.slice(after.instances.length)];
+      delete before.instancesNextCursor;
+      delete after.instancesNextCursor;
+      const complete = compareRuns(before, after);
+      expect(complete.instancesComplete).toBe(true);
+      expect(complete.instances).toHaveLength(200);
+      expect(complete.instances.every((node) => !node.changed)).toBe(true);
+      expect(complete.outputs).toHaveLength(1);
+    }
+  });
 });

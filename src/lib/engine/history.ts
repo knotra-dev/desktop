@@ -276,6 +276,7 @@ function compareInstances(before: EngineRun, after: EngineRun): InstanceChange[]
 }
 
 export function compareRuns(before: EngineRun, after: EngineRun) {
+  const instancesComplete = !before.instancesNextCursor && !after.instancesNextCursor;
   const files = (run: EngineRun) =>
     Object.fromEntries(run.package.files.map((file) => [file.path, file.content]));
   return {
@@ -288,6 +289,7 @@ export function compareRuns(before: EngineRun, after: EngineRun) {
     inputs: valueChanges(before.inputs, after.inputs),
     inputArtifacts: valueChanges(before.inputArtifacts, after.inputArtifacts),
     outputs: valueChanges(before.outputs, after.outputs),
-    instances: compareInstances(before, after),
+    instancesComplete,
+    instances: instancesComplete ? compareInstances(before, after) : [],
   };
 }

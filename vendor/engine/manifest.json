@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/knotra-dev/engine",
-  "commit": "3755b184552d1dccc6bc7df20095a2926218c949",
+  "commit": "29e52f28f5aeaaf65c392c3eb9fb0efb58b66007",
   "sha256": {
     "contracts/v1/fixtures/README.md": "393dd676c1550127ddff5b04c28073113edd8ec8e6ef334f55006414bf8aad86",
     "contracts/v1/fixtures/manifest.json": "de55f7443d650623c243161143dd7c4dcc1e757a6d64dc06c70bfa5177e939b2",
@@ -46,7 +46,7 @@
     "contracts/v1/fixtures/positive/subpipeline/pipeline.yaml": "b7ac6b6169805527fa757fdc7e4b5eb6adf4bd2261a43bbcacf16e74b4877bca",
     "contracts/v1/fixtures/positive/switch/pipeline.yaml": "526a4012292f79035ea91f5595a5f7aac7c1ddf48074998f5d10b1e4a6ee520c",
     "contracts/v1/fixtures/positive/tool/pipeline.yaml": "98ad2371afd5aee64257d23e0412f1d951ff1224d6b23201b8803414cd6d5bd0",
-    "docs/api/desktop-v1.openapi.json": "17e2d975c415f1b2185b71a6913c3ec8e65d7e1f972a0e483d11a7899dceb20a",
+    "docs/api/desktop-v1.openapi.json": "3044d7b1546b3643130d0f4677f346523452e81a151855236e124c62a73819b8",
     "examples/local/pipeline.yaml": "72f33d67d28e15bbe266c169ef6ecde5b0a159971eede496a64a850226a83de7",
     "examples/local/profile.yaml": "f363648aec48646776d8daf757fd376c8b67bef8478dd1124864440b77de1307",
     "examples/starter/README.md": "f6514f41eac307f687224533acfac6471f82feff5ced02cc2e9fc9c7b0d2d930",
