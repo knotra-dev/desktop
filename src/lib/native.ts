@@ -32,6 +32,7 @@ export async function exportFile(
     await invoke('export_file', { name, content: base64(textBytes(content)) });
     return;
   }
+
   download(name, content, mediaType);
 }
 
@@ -63,6 +64,7 @@ export async function browserPackage(files: File[], entrypoint: string): Promise
     : bytes;
   const entry = normalized.find((f) => f.path === entrypoint);
   if (!entry) throw new Error('Entrypoint file was not selected.');
+
   return {
     entrypoint,
     source: decodeText(entry.content),

@@ -11,11 +11,14 @@ const DISCOVERY_ERROR: &str =
 #[serde(rename_all = "camelCase")]
 pub struct McpTool {
     pub name: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub input_schema: Value,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<Value>,
 }
@@ -30,6 +33,7 @@ pub struct SavedMcpConnection {
     pub tools: Vec<McpTool>,
     pub allowed_tools: Vec<String>,
     pub has_credential: bool,
+
     #[serde(default)]
     pub revision: u64,
 }
@@ -124,6 +128,7 @@ pub(super) fn validate_saved(source: &SavedMcpConnection) -> Result<(), String> 
     }
     validate_url(&source.url)?;
     validate_tools(&source.tools)?;
+
     let mut allowed = std::collections::HashSet::new();
     if source.allowed_tools.len() > 1024
         || source
@@ -141,7 +146,9 @@ pub(super) fn key(
     credentials: &impl Credentials,
 ) -> Result<Option<String>, String> {
     if source.has_credential {
-        let token = credentials.get(&source.id)?.ok_or("The saved MCP token is unavailable. Unlock the system credential store, or save the token again.")?;
+        let token = credentials
+            .get(&source.id)?
+            .ok_or("The saved MCP token is unavailable. Unlock the system credential store, or save the token again.")?;
         validate_token(&token)?;
         Ok(Some(token))
     } else {
@@ -178,6 +185,7 @@ fn selected_token(
 pub(super) fn env_name(id: &str) -> String {
     format!("KNOTRA_MCP_AUTH_{}", id.to_ascii_uppercase())
 }
+
 fn secret_ref(id: &str) -> String {
     format!("mcp_{id}_auth")
 }
@@ -233,6 +241,7 @@ fn discovery_command(
         .args(["mcp", "discover", "--json"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped());
+
     let mut request = serde_json::json!({"url":url});
     if let Some(token) = token {
         command.env("KNOTRA_MCP_DISCOVERY_AUTH", format!("Bearer {token}"));
@@ -267,6 +276,7 @@ fn run_discovery(
             .read_to_end(&mut bytes)
             .map(|_| bytes)
     });
+
     let written = child
         .stdin
         .take()
@@ -297,6 +307,7 @@ fn run_discovery(
         let _ = child.kill();
     }
     let _ = child.wait();
+
     let bytes = output
         .join()
         .map_err(|_| DISCOVERY_ERROR)?
@@ -305,6 +316,7 @@ fn run_discovery(
     if bytes.len() > MAX_CATALOG_BYTES as usize {
         return Err("The MCP tool catalog is too large.".into());
     }
+
     #[derive(Deserialize)]
     struct Catalog {
         tools: Vec<McpTool>,
@@ -361,6 +373,7 @@ pub(super) fn save(
             "This MCP connection changed while you were editing it. Reload it and retry.".into(),
         );
     }
+
     source.revision = expected
         .unwrap_or(0)
         .checked_add(1)
@@ -369,6 +382,7 @@ pub(super) fn save(
         .desired_revision
         .checked_add(1)
         .ok_or("The saved connection revision is invalid.")?;
+
     let new_token = selected_token(previous.as_ref(), &source.url, token, clear, credentials)?;
     let previous_token = previous
         .as_ref()
@@ -388,6 +402,7 @@ pub(super) fn save(
     {
         credentials.remove(&source.id)?;
     }
+
     if let Some(old) = saved
         .mcp_connections
         .iter_mut()
@@ -401,6 +416,7 @@ pub(super) fn save(
         saved.mcp_ids.push(source.id.clone());
     }
     saved.desired_revision = revision;
+
     if let Err(error) = connections::store(root, &saved) {
         if token.is_some() || clear {
             if let Some(token) = previous_token {
@@ -431,6 +447,7 @@ fn refresh(
             "This MCP connection changed while its tools were loading. Reload it and retry.".into(),
         );
     }
+
     source.revision = source
         .revision
         .checked_add(1)
@@ -466,6 +483,7 @@ fn remove(
     }
     saved.mcp_connections.retain(|source| source.id != id);
     saved.desired_revision = revision;
+
     if let Err(error) = connections::store(root, &saved) {
         if let Some(token) = token {
             let _ = credentials.set(id, &token);
@@ -538,6 +556,7 @@ pub async fn desktop_mcp_connection_save(
         let selected = selected_token(previous.as_ref(), &url, token.as_deref(), clear, &Keychain)?;
         (previous, selected)
     };
+
     let tools = discover(setup.clone(), url.clone(), selected).await?;
     validate_selection(&tools, &allowed_tools, previous.as_ref())?;
     let source = SavedMcpConnection {
@@ -558,6 +577,7 @@ pub async fn desktop_mcp_connection_save(
         has_credential: false,
         revision: 0,
     };
+
     let expected = previous.as_ref().map(|source| source.revision);
     tauri::async_runtime::spawn_blocking(move || {
         let _lock = setup.sources.lock().unwrap();
@@ -663,6 +683,7 @@ mod tests {
             ),
         }
     }
+
     fn source(id: &str) -> SavedMcpConnection {
         SavedMcpConnection {
             id: id.into(),
@@ -675,6 +696,7 @@ mod tests {
             revision: 0,
         }
     }
+
     fn apply(root: &Path, credentials: &MemoryCredentials) -> connections::AppliedSetup {
         let mut saved = connections::load(root).unwrap();
         let (applied, errors) = connections::stage_applied(&saved, credentials).unwrap();
@@ -1196,7 +1218,12 @@ mod tests {
                 .stderr(Stdio::null());
             c
         }
-        let tools = run_discovery(command("cat >/dev/null; printf '%s' '{\"tools\":[{\"name\":\"read\",\"title\":\"Friendly read\",\"inputSchema\":{\"type\":\"object\"},\"outputSchema\":{\"type\":\"object\"}}]}'"), b"{}", Duration::from_secs(2)).unwrap();
+        let tools = run_discovery(
+            command("cat >/dev/null; printf '%s' '{\"tools\":[{\"name\":\"read\",\"title\":\"Friendly read\",\"inputSchema\":{\"type\":\"object\"},\"outputSchema\":{\"type\":\"object\"}}]}'"),
+            b"{}",
+            Duration::from_secs(2)
+        )
+        .unwrap();
         assert_eq!(tools[0].title.as_deref(), Some("Friendly read"));
         assert!(tools[0].output_schema.is_some());
         let error = run_discovery(

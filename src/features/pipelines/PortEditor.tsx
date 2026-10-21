@@ -36,6 +36,7 @@ export function portDataType(port: Port): string {
   if (port.artifact) return 'file';
   if (port.schemaRef) return 'reference';
   const schema = record(port.schema);
+
   return typeof schema.type === 'string'
     ? schema.type
     : port.schema === false || Object.keys(schema).length
@@ -58,6 +59,7 @@ export function JsonField<Value = Json>({
 }) {
   const { message } = useI18n();
   const [error, setError] = useState('');
+
   return (
     <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
       {label}
@@ -119,6 +121,7 @@ export function BindingEditor({
   const options = sources(graph, imports);
   const source = options.find((option) => option.value === binding.from);
   const custom = binding.from && !source;
+
   return (
     <div className="binding-editor block w-full min-w-0">
       <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
@@ -320,9 +323,11 @@ export default function PortEditor({
   const [name, setName] = useState('');
   const [type, setType] = useState('string');
   const [error, setError] = useState('');
+
   function update(name: string, change: Partial<Port>) {
     onChange({ ...ports, [name]: { ...ports[name], ...change } });
   }
+
   function dataType(port: Port, type: string): Port {
     const { schema, schemaRef, artifact, mount, collect, ...rest } = port;
     if (type === 'file')
@@ -339,11 +344,13 @@ export default function PortEditor({
       schema: type === 'JSON' ? true : { type, ...(type === 'array' ? { items: true } : {}) },
     };
   }
+
   function add() {
     if (!/^[a-z][a-z0-9_]{0,63}$/.test(name) || ports[name]) {
       setError('Use a unique name, starting with a lowercase letter.');
       return;
     }
+
     const port = dataType({}, type);
     if (direction === 'inputs') {
       if (port.artifact) {
@@ -357,11 +364,13 @@ export default function PortEditor({
         port.bind = { from: source.value };
       } else port.bind = { value: seedValue(port) };
     }
+
     onChange({ ...ports, [name]: port });
     setAdding(false);
     setName('');
     setError('');
   }
+
   return (
     <section className="port-editor mb-6.5">
       <div className="port-section-title flex items-center justify-between gap-2.5 mb-2.5">

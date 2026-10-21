@@ -37,6 +37,7 @@ export function useEngine(notify: (message: string) => void) {
   const refreshing = useRef<
     { revision: number; again: boolean; promise: Promise<void> } | undefined
   >(undefined);
+
   const refresh = useCallback(
     async (queue = true): Promise<void> => {
       const current = revision.current;
@@ -46,6 +47,7 @@ export function useEngine(notify: (message: string) => void) {
         if (queue) refreshing.current.again = true;
         return refreshing.current.promise;
       }
+
       const task = { revision: current, again: true, promise: Promise.resolve() };
       refreshing.current = task;
       setSyncing(true);
@@ -66,11 +68,13 @@ export function useEngine(notify: (message: string) => void) {
             if (current !== revision.current) return;
             if (!Array.isArray(profiles.items) || !Array.isArray(resources.items))
               throw new Error('Engine returned an incompatible catalog.');
+
             for (const run of runs) assertEngineModel('Run', run);
             for (const request of requests) assertEngineModel('HumanRequest', request);
             for (const artifact of artifacts) assertEngineModel('Artifact', artifact);
             for (const profile of profiles.items) assertEngineModel('Profile', profile);
             for (const resource of resources.items) assertEngineModel('Resource', resource);
+
             setRuns(runs);
             setRequests(requests);
             setArtifacts(artifacts);
@@ -92,16 +96,20 @@ export function useEngine(notify: (message: string) => void) {
           if (task.again) void refresh(false);
         }
       });
+
       return task.promise;
     },
     [info],
   );
+
   useEffect(() => {
     void refresh();
     if (!info) return;
+
     const timer = setInterval(() => void refresh(false), 10000);
     return () => clearInterval(timer);
   }, [refresh, info]);
+
   const connect = useCallback(async (url: string, token?: string) => {
     const current = ++revision.current;
     setInfo(undefined);
@@ -113,12 +121,15 @@ export function useEngine(notify: (message: string) => void) {
     setProfiles([]);
     setResources([]);
     setPending([]);
+
     try {
       const info = await connectEngine(url, token);
       assertEngineModel('Info', info);
       if (current !== revision.current) return;
+
       const saved = await engineCache();
       if (current !== revision.current) return;
+
       // Recover the last read model first, clearly marked until the fresh read completes.
       const pages = Object.entries(saved.cache).flatMap(([key, value]) => {
         try {
@@ -130,6 +141,7 @@ export function useEngine(notify: (message: string) => void) {
       const validPages = pages.filter((page) => {
         try {
           if (!Array.isArray((page.value as { items?: unknown[] })?.items)) return false;
+
           const model =
             page.op === 'runs'
               ? 'Run'
@@ -141,11 +153,13 @@ export function useEngine(notify: (message: string) => void) {
           if (model)
             for (const item of (page.value as { items: unknown[] }).items)
               assertEngineModel(model, item);
+
           return true;
         } catch {
           return false;
         }
       });
+
       setRuns(
         validPages
           .filter((page) => page.op === 'runs')
@@ -164,6 +178,7 @@ export function useEngine(notify: (message: string) => void) {
       setPending(saved.pending);
       setSessionKey(engineSessionKey());
       setInfo(info);
+
       return info;
     } catch (error) {
       if (current === revision.current) {
@@ -174,14 +189,17 @@ export function useEngine(notify: (message: string) => void) {
       if (current === revision.current) setConnecting(false);
     }
   }, []);
+
   async function disconnect() {
     const current = ++revision.current;
     await disconnectEngine();
     if (current !== revision.current) return;
+
     setInfo(undefined);
     setError('');
     setPending([]);
   }
+
   async function command<T>(call: EngineCall): Promise<T> {
     const current = revision.current;
     let response: T;
@@ -207,8 +225,10 @@ export function useEngine(notify: (message: string) => void) {
         'disconnected',
         'Connection changed; recover commands on the original engine.',
       );
+
     return response;
   }
+
   return {
     info,
     sessionKey,

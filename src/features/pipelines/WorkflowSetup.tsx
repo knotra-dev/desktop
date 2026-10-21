@@ -33,9 +33,11 @@ export default function WorkflowSetup({
 }) {
   const { t, message } = useI18n();
   const resourcePanel = useRef<HTMLElement>(null);
+
   useEffect(() => {
     if (showResources) resourcePanel.current?.scrollIntoView({ block: 'start' });
   }, [showResources]);
+
   const [input, setInput] = useState('');
   const [type, setType] = useState('string');
   const [output, setOutput] = useState('');
@@ -44,6 +46,7 @@ export default function WorkflowSetup({
   const options = sources(graph, imports);
   const validName = (name: string, existing: Record<string, unknown>) =>
     /^[a-z][a-z0-9_]{0,63}$/.test(name) && !(name in existing);
+
   return (
     <aside className="inspector setup-inspector w-85 shrink-0 overflow-hidden border-l border-solid border-l-line bg-surface flex flex-col">
       <header className="inspector-header flex items-center justify-between pt-4 pb-2 px-4.5">
@@ -342,9 +345,11 @@ function ResourceList({
 }) {
   const { t, message } = useI18n();
   const [expanded, setExpanded] = useState(!!initiallyOpen);
+
   useEffect(() => {
     if (initiallyOpen) setExpanded(true);
   }, [initiallyOpen]);
+
   const [alias, setAlias] = useState('');
   const [connection, setConnection] = useState('');
   const [error, setError] = useState('');
@@ -359,6 +364,7 @@ function ResourceList({
   );
   const suggestionsId = useId();
   const suggestions = available.length ? suggestionsId : undefined;
+
   return (
     <details
       data-tour={kind === 'models' ? 'workflow-models' : undefined}

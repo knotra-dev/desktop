@@ -2,10 +2,12 @@ mod backend;
 mod control;
 mod package;
 mod setup;
+
 use backend::*;
 use package::{OpenedPackage, PackageFile};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
+
 #[tauri::command]
 async fn open_package(app: tauri::AppHandle) -> std::result::Result<Option<OpenedPackage>, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -80,6 +82,7 @@ pub fn run() {
             desktop_setup.restore();
             app.manage(desktop_setup);
             app.manage(control::DesktopControl::new(app.handle()));
+
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())

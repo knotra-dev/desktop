@@ -28,6 +28,7 @@ export function NodeMcp({
   const selected = connections.find((item) => item.id === connection);
   const tools = selected?.tools.filter((tool) => selected.allowedTools.includes(tool.name)) ?? [];
   const tool = selected?.tools.find((tool) => tool.name === name);
+
   return (
     <section data-tour="node-mcp" className="mb-6 flex min-w-0 flex-col gap-4">
       <label className="field flex flex-col gap-2 text-[11px] leading-relaxed text-muted">
@@ -122,6 +123,7 @@ export function AgentMcp({
     ([alias]) =>
       !connections.some((connection) => connection.id === resources.mcp?.[alias]?.connection),
   );
+
   return (
     <section data-tour="node-mcp" className="mb-6">
       <h3 className="mb-2 text-[12px] font-medium text-ink">{t('editor.mcpTools')}</h3>

@@ -7,7 +7,9 @@ use std::{
     path::{Path, PathBuf},
 };
 use unicode_normalization::UnicodeNormalization;
+
 const MAX_PACKAGE: usize = 64 * 1024 * 1024;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PackageFile {
     pub path: String,
@@ -138,10 +140,12 @@ impl Loader<'_> {
         if bytes.len() > 8 * 1024 * 1024 {
             return Err("Pipeline exceeds 8 MiB".into());
         }
+
         let value: serde_yaml::Value = serde_yaml::from_slice(bytes).map_err(err)?;
         if value["kind"].as_str() != Some("Pipeline") {
             return Err("Entrypoint and imports must be Pipeline documents".into());
         }
+
         let declared: Vec<String> = match &value["spec"]["files"] {
             serde_yaml::Value::Null => vec![],
             serde_yaml::Value::Sequence(items) => items
@@ -177,6 +181,7 @@ impl Loader<'_> {
                 });
             }
         }
+
         let mut children = Vec::new();
         imports(&value["spec"], &mut children);
         for child in children {
@@ -197,6 +202,7 @@ impl Loader<'_> {
             let bytes = STANDARD.decode(&file.content).map_err(err)?;
             self.load(&child, &bytes, depth + 1)?;
         }
+
         self.active.remove(path);
         self.loaded.insert(path.into());
         Ok(())
@@ -217,6 +223,7 @@ pub fn read_package(selected: &Path) -> Result<OpenedPackage, String> {
     if !valid_path(&entrypoint) {
         return Err("Invalid entrypoint filename".into());
     }
+
     let bytes = read_relative(&root, &entrypoint)?;
     let source = String::from_utf8(bytes.clone()).map_err(err)?;
     let mut loader = Loader {
@@ -248,6 +255,7 @@ pub fn write_package(
     if !valid_path(entrypoint) || !valid_path(name) || name.contains('/') {
         return Err("Invalid export name or entrypoint".into());
     }
+
     let mut paths = HashSet::new();
     let mut decoded = vec![];
     let mut size = 0;
@@ -267,6 +275,7 @@ pub fn write_package(
         }
         decoded.push((file.path, bytes));
     }
+
     for path in &paths {
         let parts: Vec<_> = path.split('/').collect();
         for i in 1..parts.len() {
@@ -275,6 +284,7 @@ pub fn write_package(
             }
         }
     }
+
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(err)?
@@ -295,6 +305,7 @@ pub fn write_package(
         }
         Ok(destination.clone())
     })();
+
     if result.is_err() {
         let _ = fs::remove_dir_all(&destination);
     }
@@ -318,6 +329,7 @@ pub fn write_file(path: &Path, content: &str) -> Result<(), String> {
             }
         }
     }
+
     let mut options = OpenOptions::new();
     options.write(true).create(true).truncate(true);
     #[cfg(unix)]
@@ -335,6 +347,7 @@ pub fn write_file(path: &Path, content: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     fn scratch() -> PathBuf {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let p = std::env::temp_dir().join(format!(
@@ -389,6 +402,7 @@ mod tests {
         assert!(write_package(&root, "pipeline.yaml", "test", &files, "test").is_err());
         fs::remove_dir_all(root).unwrap();
     }
+
     #[cfg(unix)]
     #[test]
     fn rejects_links() {
@@ -400,6 +414,7 @@ mod tests {
         assert!(read_relative(&root, "hard").is_err());
         fs::remove_dir_all(root).unwrap();
     }
+
     #[test]
     fn imports_only_follow_graph_nodes() {
         let graph: serde_yaml::Value = serde_yaml::from_str(

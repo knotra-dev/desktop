@@ -43,6 +43,7 @@ export function HumanResponseForm({
   const canUseFields = !!(fields && response && humanResponseFitsFields(response, fields));
   const raw = advanced || !canUseFields;
   const number = (value: unknown) => (typeof value === 'number' ? value : undefined);
+
   return (
     <div className="flex flex-col gap-4">
       {canUseFields && !raw

@@ -21,17 +21,21 @@ export function humanResponseFields(schema: unknown): HumanResponseField[] | nul
     )
   )
     return null;
+
   const required = Array.isArray(object.required) ? object.required : [];
   if (required.some((name) => typeof name !== 'string' || !Object.hasOwn(properties, name)))
     return null;
+
   const fields: HumanResponseField[] = [];
   for (const [name, value] of Object.entries(properties)) {
     const property = record(value);
     if (['$ref', 'allOf', 'anyOf', 'oneOf', 'not', 'if'].some((key) => key in property))
       return null;
+
     const type = property.type;
     if (type !== 'string' && type !== 'number' && type !== 'integer' && type !== 'boolean')
       return null;
+
     const choices = Object.hasOwn(property, 'const') ? [property.const] : property.enum;
     if (
       choices !== undefined &&
@@ -44,6 +48,7 @@ export function humanResponseFields(schema: unknown): HumanResponseField[] | nul
         ))
     )
       return null;
+
     fields.push({
       name,
       type,
@@ -52,6 +57,7 @@ export function humanResponseFields(schema: unknown): HumanResponseField[] | nul
       choices: choices as ResponsePrimitive[] | undefined,
     });
   }
+
   return fields;
 }
 
@@ -72,6 +78,7 @@ export function humanResponseFitsFields(
 ): boolean {
   return fields.every(({ name, type, choices }) => {
     if (!Object.hasOwn(response, name)) return true;
+
     const value = response[name];
     return (
       typeof value === (type === 'integer' ? 'number' : type) &&
@@ -87,6 +94,7 @@ export function updateHumanResponse(
 ): string {
   const response = parseHumanResponse(value);
   if (!response) return value;
+
   const next = { ...response, [name]: fieldValue };
   if (fieldValue === undefined) delete next[name];
   return JSON.stringify(next, null, 2);

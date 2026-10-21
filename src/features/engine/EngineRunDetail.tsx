@@ -66,10 +66,13 @@ export function EngineRunDetail({
   const [jsonError, setJsonError] = useState(false);
   const [busy, setBusy] = useState(false);
   const refresh = engine.refresh;
+
   async function loadInstances() {
     if (!run.instancesNextCursor || loadingInstances) return;
+
     setLoadingInstances(true);
     setInstanceError('');
+
     try {
       const page = await engineCall<Page<EngineInstance>>({
         op: 'instances',
@@ -88,6 +91,7 @@ export function EngineRunDetail({
       setLoadingInstances(false);
     }
   }
+
   useEffect(() => {
     let stopped = false;
     let stop: (() => void) | undefined;
@@ -142,8 +146,10 @@ export function EngineRunDetail({
       if (timer) clearTimeout(timer);
     };
   }, [run.id, engine.info, refresh]);
+
   async function act(op: 'cancel' | 'resume') {
     setBusy(true);
+
     try {
       await engine.command({ op, runId: run.id, operationId: crypto.randomUUID() });
     } catch {
@@ -152,12 +158,14 @@ export function EngineRunDetail({
       setBusy(false);
     }
   }
+
   async function resolve() {
     setBusy(true);
     setResolutionError('');
     setLocalResolutionError(false);
     setJsonError(false);
     let localFailure = false;
+
     try {
       const values = outcome === 'succeeded' ? JSON.parse(outputs) : {};
       if (!values || typeof values !== 'object' || Array.isArray(values)) {
@@ -180,6 +188,7 @@ export function EngineRunDetail({
       setBusy(false);
     }
   }
+
   const connectionStatus = stream.split(' · ')[0];
   const streamLabel =
     stream === 'Connecting…' || stream === 'Disconnected · cached run'
@@ -187,6 +196,7 @@ export function EngineRunDetail({
       : ['connected', 'reconnecting'].includes(connectionStatus)
         ? `${t(executionConnectionLabels[connectionStatus] ?? connectionStatus)}${stream.slice(connectionStatus.length)}`
         : stream;
+
   return (
     <div className="run-detail h-full flex flex-col min-h-0">
       <div className="run-heading flex items-center justify-between mt-5.25 mb-0 mx-7.5">

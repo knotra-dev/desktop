@@ -96,10 +96,12 @@ async function open(page: Page, scenario: Scenario = {}) {
               await released;
               if (scenario.discoverErrorOnce && ++discoveryAttempts === 1)
                 throw `Cannot connect with ${args.token}`;
+
               return tools;
             }
             if (command === 'desktop_mcp_connection_save') {
               if (scenario.saveErrorOnce && ++saveAttempts === 1) throw `Cannot save ${args.token}`;
+
               const before = servers.find((server) => server.id === args.id);
               const server: SavedMcpConnection = {
                 id: String(args.id ?? `mcp_${servers.length + 1}`),
@@ -113,6 +115,7 @@ async function open(page: Page, scenario: Scenario = {}) {
               };
               servers = [...servers.filter((item) => item.id !== server.id), server];
               persist();
+
               return server;
             }
             if (command === 'desktop_mcp_connection_refresh') {
@@ -127,6 +130,7 @@ async function open(page: Page, scenario: Scenario = {}) {
               };
               servers = servers.map((item) => (item.id === server.id ? server : item));
               persist();
+
               return server;
             }
             if (command === 'desktop_mcp_connection_remove') {
@@ -135,6 +139,7 @@ async function open(page: Page, scenario: Scenario = {}) {
               return servers;
             }
             if (command === 'engine_cache') return { cache: {}, pending: [] };
+
             return 1;
           },
         },
@@ -151,12 +156,14 @@ async function open(page: Page, scenario: Scenario = {}) {
   await expect(
     page.locator('#mcp-settings').getByRole('button', { name: t['mcpSetup.add'], exact: true }),
   ).toBeEnabled();
+
   return t;
 }
 
 function form(page: Page) {
   return page.locator('#mcp-settings');
 }
+
 async function calls(page: Page, command: string) {
   return page.evaluate(
     (command) =>
@@ -168,6 +175,7 @@ async function calls(page: Page, command: string) {
     command,
   );
 }
+
 async function add(page: Page) {
   await form(page).getByRole('button', { name: 'Add server', exact: true }).click();
   await form(page).getByRole('textbox', { name: 'Server name', exact: true }).fill('My tools');

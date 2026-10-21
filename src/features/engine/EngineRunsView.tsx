@@ -39,6 +39,7 @@ export function EngineRunsView({
       (status === 'all' || status === run.status) &&
       `${run.id} ${run.title}`.toLowerCase().includes(search.toLowerCase()),
   );
+
   return (
     <section className="page pb-8.75 min-h-full">
       <header className="page-heading flex items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">

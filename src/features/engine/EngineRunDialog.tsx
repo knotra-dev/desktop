@@ -50,17 +50,20 @@ export function EngineRunDialog({
   const frozen = useRef<{ definitionId?: string; startId: string; publishId: string } | undefined>(
     undefined,
   );
+
   async function check(start: boolean) {
     setBusy(true);
     setError('');
     setLocalError(undefined);
     let localFailure: typeof localError;
+
     try {
       const values = JSON.parse(inputs);
       if (!values || typeof values !== 'object' || Array.isArray(values)) {
         localFailure = { phrase: 'Inputs must be a JSON object.' };
         throw new Error('Inputs must be a JSON object.');
       }
+
       const artifactBindings = { ...handles };
       for (const [name, port] of Object.entries(pipeline?.spec.inputs ?? {}))
         if (port.artifact?.collection) {
@@ -74,6 +77,7 @@ export function EngineRunDialog({
           }
           artifactBindings[name] = value;
         }
+
       const pack = enginePackage(workspace);
       const admission = await engine.command<{ valid: boolean; diagnostics: EngineDiagnostic[] }>({
         op: 'validate',
@@ -82,9 +86,11 @@ export function EngineRunDialog({
         inputs: values,
         artifacts: artifactBindings,
       });
+
       setDiagnostics(admission.diagnostics);
       setValidated(admission.valid);
       if (!admission.valid || !start) return;
+
       frozen.current ??= { startId: crypto.randomUUID(), publishId: crypto.randomUUID() };
       let definitionId = frozen.current.definitionId;
       if (!definitionId) {
@@ -96,6 +102,7 @@ export function EngineRunDialog({
         definitionId = definition.id;
         frozen.current.definitionId = definitionId;
       }
+
       const { run } = await engine.command<{ run: EngineRun }>({
         op: 'start',
         definitionId,
@@ -104,6 +111,7 @@ export function EngineRunDialog({
         artifacts: artifactBindings,
         operationId: frozen.current.startId,
       });
+
       onStarted(run.id);
       onClose();
     } catch (error) {
@@ -132,6 +140,7 @@ export function EngineRunDialog({
       setBusy(false);
     }
   }
+
   return (
     <Modal
       title={t('execution.runOnEngine')}

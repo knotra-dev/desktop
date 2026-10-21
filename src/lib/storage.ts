@@ -75,12 +75,14 @@ async function readWorkspace(): Promise<State> {
         );
         return;
       }
+
       void navigator.locks
         .request(KEY, { ifAvailable: true }, (lock) => {
           if (!lock) {
             reject(new Error(WORKSPACE_BUSY));
             return;
           }
+
           workspaceSession.browserOpen = true;
           resolve();
           // The browser releases this lock when the tab closes; saves remain synchronous.
@@ -91,8 +93,10 @@ async function readWorkspace(): Promise<State> {
     const loaded = loadState();
     const migrated = await migrateStarters(loaded);
     if (migrated !== loaded) await saveState(migrated);
+
     return migrated;
   }
+
   const saved = await invoke<State | null>('workspace_load');
   if (saved) {
     const loaded = readBackup(JSON.stringify(saved));
@@ -100,9 +104,11 @@ async function readWorkspace(): Promise<State> {
     if (migrated !== loaded) await saveState(migrated);
     return migrated;
   }
+
   const legacy = localStorage.getItem(KEY);
   const migrated = await migrateStarters(legacy === null ? freshState() : readBackup(legacy));
   await invoke('workspace_save', { value: migrated });
+
   return migrated;
 }
 
@@ -110,6 +116,7 @@ export function saveState(state: State): Promise<void> {
   if (!desktop) {
     try {
       if (!workspaceSession.browserOpen) throw new Error(WORKSPACE_BUSY);
+
       localStorage.setItem(KEY, JSON.stringify(state));
       return Promise.resolve();
     } catch (e) {
@@ -119,6 +126,7 @@ export function saveState(state: State): Promise<void> {
   const value = JSON.parse(JSON.stringify(state));
   const next = writes.catch(() => {}).then(() => invoke<void>('workspace_save', { value }));
   writes = next;
+
   return next;
 }
 
@@ -129,9 +137,11 @@ export function flushWorkspace(): Promise<void> {
 export function readBackup(text: string): State {
   if (new TextEncoder().encode(text).length > 96 * 1024 * 1024)
     throw new Error('Workspace backup exceeds 96 MiB.');
+
   const value = JSON.parse(text);
   if (value?.version !== 1 || !Array.isArray(value.workspaces) || !Array.isArray(value.runs))
     throw new Error('Unsupported workspace backup.');
+
   const ids = new Set<string>();
   for (const workspace of value.workspaces) {
     if (
@@ -146,6 +156,7 @@ export function readBackup(text: string): State {
       typeof workspace.updatedAt !== 'string'
     )
       throw new Error('Invalid pipeline draft in backup.');
+
     ids.add(workspace.id);
     if (
       !workspace.files.every(
@@ -157,13 +168,16 @@ export function readBackup(text: string): State {
       )
     )
       throw new Error('Invalid supporting file in backup.');
+
     const paths = new Set([foldPath(workspace.entrypoint)]);
     let size = new TextEncoder().encode(workspace.source).length;
     if (!validPath(workspace.entrypoint) || workspace.files.length > 511)
       throw new Error('Invalid package paths or file count in backup.');
+
     for (const file of workspace.files) {
       if (!validPath(file.path) || paths.has(foldPath(file.path)))
         throw new Error('Duplicate or invalid package path in backup.');
+
       paths.add(foldPath(file.path));
       size += unbase64(file.content).length;
     }
@@ -219,6 +233,7 @@ export function readBackup(text: string): State {
       })
     )
       throw new Error('Invalid demo outputs or events in backup.');
+
     runIds.add(run.id);
   }
   const engineUrl = typeof value.engineUrl === 'string' ? value.engineUrl : 'http://127.0.0.1:8787';
@@ -231,6 +246,7 @@ export function readBackup(text: string): State {
     address.hash
   )
     throw new Error('Invalid engine address in backup.');
+
   return {
     version: 1,
     ...([1, 2, 3, 4, 5].includes(value.starterRevision)

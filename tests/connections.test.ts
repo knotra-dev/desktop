@@ -9,6 +9,7 @@ describe('visual data bindings', () => {
     const graph = structuredClone(researchPipeline.spec);
     expect(sources(graph).map((source) => source.value)).toContain('inputs.topic');
     expect(sources(graph).map((source) => source.value)).toContain('nodes.draft.outputs.brief');
+
     const child: Graph = {
       nodes: {},
       outputs: { answer: { schema: { type: 'string' }, bind: { value: 'yes' } } },
@@ -20,6 +21,7 @@ describe('visual data bindings', () => {
       ),
     ).toBe(true);
   });
+
   it('allows a direct output binding without adding an explicit needs dependency', () => {
     expect(
       connectionError(researchPipeline.spec, {
@@ -30,6 +32,7 @@ describe('visual data bindings', () => {
       }),
     ).toBeUndefined();
   });
+
   it('rejects self links, missing ports, reverse dependencies and incompatible types', () => {
     expect(
       connectionError(researchPipeline.spec, {
@@ -64,6 +67,7 @@ describe('visual data bindings', () => {
       }),
     ).toContain('data types');
   });
+
   it('checks all input dependencies while allowing a binding replacement that removes a dependency', () => {
     const graph = structuredClone(researchPipeline.spec);
     graph.nodes.research.inputs!.sources.schema = { type: 'string' };
@@ -86,6 +90,7 @@ describe('visual data bindings', () => {
       }),
     ).toBeUndefined();
   });
+
   it('keeps JSON and artifact wiring separate and checks file collections and MIME types', () => {
     const file = nodePorts(researchPipeline.spec.nodes.publish).document;
     expect(compatible(file, { schema: { type: 'object' } })).toBe(false);
@@ -95,6 +100,7 @@ describe('visual data bindings', () => {
       compatible(file, { artifact: { mediaTypes: ['text/markdown'], collection: true } }),
     ).toBe(false);
   });
+
   it('allows JSON type domains with an overlap and rejects disjoint domains', () => {
     expect(compatible({ schema: { type: 'integer' } }, { schema: { type: 'number' } })).toBe(true);
     expect(compatible({ schema: { type: 'number' } }, { schema: { type: 'integer' } })).toBe(true);
@@ -105,6 +111,7 @@ describe('visual data bindings', () => {
       compatible({ schema: { type: ['string', 'null'] } }, { schema: { type: 'array' } }),
     ).toBe(false);
   });
+
   it('offers a nullable output to a matching input without rejecting the visual connection', () => {
     const graph = structuredClone(researchPipeline.spec);
     graph.nodes.research.outputs!.summary.schema = { type: ['string', 'null'] };

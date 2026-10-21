@@ -26,6 +26,7 @@ export function ActivityCard({ row, running }: { row: Activity; running: boolean
       </div>
     );
   }
+
   const start = record(row.started?.data);
   const end = record(row.completed?.data);
   const finished = !!row.completed;
@@ -40,6 +41,7 @@ export function ActivityCard({ row, running }: { row: Activity; running: boolean
   const incomplete = row.observationIncomplete;
   const truncated = row.truncated;
   const active = !finished && running;
+
   return (
     <article
       className={`execution-operation border border-solid border-line rounded-[8px] overflow-hidden bg-surface ${active ? 'is-active' : ''} ${failed ? 'is-failed' : ''}`}

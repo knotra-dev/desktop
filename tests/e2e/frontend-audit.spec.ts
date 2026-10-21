@@ -13,6 +13,7 @@ for (const width of [1024, 1440]) {
       await expect(page.getByRole('button', { pressed: true })).toContainText(
         missingRuns ? 'run-first' : 'Research first',
       );
+
       const bounds = await page.evaluate(() => {
         const rect = (selector: string) =>
           document.querySelector(selector)!.getBoundingClientRect();
@@ -23,6 +24,7 @@ for (const width of [1024, 1440]) {
         const run = rect('.review-card > header > button');
         const id = rect('.response-footer small');
         const submit = rect('.response-footer > button');
+
         return {
           listFits: title.right <= list.right,
           headingFits: heading.right <= run.left,
@@ -31,6 +33,7 @@ for (const width of [1024, 1440]) {
           noScroll: document.documentElement.scrollWidth <= innerWidth,
         };
       });
+
       expect(bounds).toEqual({
         listFits: true,
         headingFits: true,
@@ -50,6 +53,7 @@ test('switching human requests preserves each unsent response and marks the disp
   const second = page.getByRole('button', { name: /review_second/ });
   await expect(first).toHaveAttribute('aria-pressed', 'true');
   await expect(second).toHaveAttribute('aria-pressed', 'false');
+
   const response = page.getByRole('textbox', { name: 'Engine review response' });
   await response.fill('{"feedback":"First review in progress"}');
   await second.click();
@@ -138,6 +142,7 @@ test('artifact upload errors do not block verified exports and transient export 
         });
       return route.fulfill({ headers, contentType: 'text/plain', body: 'hello' });
     }
+
     return route.abort();
   });
   await page.goto('/tests/fixtures/frontend-audit.html?component=artifacts');
@@ -149,6 +154,7 @@ test('artifact upload errors do not block verified exports and transient export 
     buffer: Buffer.from('input'),
   });
   await expect(page.getByRole('alert')).toHaveText('Upload failed in fixture.');
+
   const exportButton = page.getByRole('button', { name: 'Export', exact: true });
   await expect(exportButton).toBeEnabled();
   await exportButton.click();
@@ -156,6 +162,7 @@ test('artifact upload errors do not block verified exports and transient export 
     'Artifact bytes are unavailable.',
   );
   await expect(exportButton).toBeEnabled();
+
   const download = page.waitForEvent('download');
   await exportButton.click();
   expect((await download).suggestedFilename()).toBe('hello.txt');
@@ -242,6 +249,7 @@ test('human review previews verified files and keeps the response draft when a d
         contentType: 'text/plain',
         body: corrupt ? 'wrong' : 'hello',
       });
+
     return route.abort();
   });
   await page.goto('/tests/fixtures/frontend-audit.html?component=inbox&connected=1');

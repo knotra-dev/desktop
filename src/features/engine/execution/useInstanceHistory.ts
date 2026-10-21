@@ -14,8 +14,10 @@ export function useInstanceHistory(
   const [loading, setLoading] = useState(false);
   const [historyError, setHistoryError] = useState('');
   const [historyLimited, setHistoryLimited] = useState(false);
+
   useEffect(() => {
     if (!id || !connected) return;
+
     let active = true;
     setLoading(true);
     void (async () => {
@@ -31,6 +33,7 @@ export function useInstanceHistory(
             cursor: next,
           });
           if (!active) return;
+
           loaded = mergeEvents(loaded, page.items);
           next = page.nextCursor;
           setHistory((current) => observationWindow(mergeEvents(current, page.items)));
@@ -45,14 +48,18 @@ export function useInstanceHistory(
         if (active) setLoading(false);
       }
     })();
+
     return () => {
       active = false;
     };
   }, [id, runId, connected]);
+
   useEffect(() => {
     if (!id) return;
+
     const incoming = events.filter((event) => event.instanceId === id);
     if (!incoming.length) return;
+
     setHistory((current) => {
       const merged = mergeEvents(current, incoming);
       const bounded = observationWindow(merged);
@@ -60,9 +67,12 @@ export function useInstanceHistory(
       return bounded;
     });
   }, [events, id]);
+
   async function loadMore() {
     if (!id || !cursor || loading) return;
+
     setLoading(true);
+
     try {
       const page = await engineCall<Page<EngineEvent>>({
         op: 'history',
@@ -84,6 +94,7 @@ export function useInstanceHistory(
       setLoading(false);
     }
   }
+
   const ownEvents = useMemo(
     () =>
       mergeEvents(
@@ -92,5 +103,6 @@ export function useInstanceHistory(
       ),
     [history, events, id],
   );
+
   return { ownEvents, cursor, loading, historyError, historyLimited, loadMore };
 }

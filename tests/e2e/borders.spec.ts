@@ -6,6 +6,7 @@ for (const theme of ['dark', 'light'] as const) {
     async function expectBorders(selector: string, expected: number[]) {
       const elements = page.locator(selector);
       await expect(elements).not.toHaveCount(0);
+
       const widths = await elements.evaluateAll((nodes) =>
         nodes.map((node) => {
           const style = getComputedStyle(node);

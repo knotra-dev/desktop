@@ -32,10 +32,12 @@ test('a blocked open closes its late connection and permits a clean retry', asyn
       }
       await closed;
       IDBDatabase.prototype.close = close;
+
       return { failure, state: await store.browserEventState(session, 'run') };
     },
     { modulePath, session },
   );
+
   expect(result.failure).toContain('Close other tabs');
   expect(result.state.events).toEqual([]);
 });
@@ -78,6 +80,7 @@ test('migrates legacy event IDs atomically and keeps deduplication after a page 
     },
     { modulePath, session },
   );
+
   expect(migrated.state.cursor).toBe('opaque/latest+');
   expect(migrated.state.events).toHaveLength(1);
   expect(migrated.cache).toEqual({
@@ -100,6 +103,7 @@ test('migrates legacy event IDs atomically and keeps deduplication after a page 
     },
     { modulePath, session },
   );
+
   expect(restored.duplicate).toBe(false);
   expect(restored.state.cursor).toBe('opaque/latest+');
   expect(restored.state.events).toHaveLength(1);
@@ -139,6 +143,7 @@ test('evicted events remain deduplicated without growing localStorage or orderin
         makeEvent('opaque/0+'),
       );
       const otherRun = await store.acceptBrowserEvent(session, makeEvent('opaque/0+', 'other-run'));
+
       return {
         ids: window.events.map((event: { id: string }) => event.id),
         duplicate,
@@ -152,6 +157,7 @@ test('evicted events remain deduplicated without growing localStorage or orderin
     },
     { modulePath, session },
   );
+
   expect(result.ids).toHaveLength(1000);
   expect(result.ids).not.toContain('opaque/0+');
   expect(result.duplicate).toBe(false);
@@ -175,6 +181,7 @@ test('evicted events remain deduplicated without growing localStorage or orderin
     },
     { modulePath, session },
   );
+
   expect(duplicateAfterReload).toBe(false);
 });
 
@@ -209,10 +216,12 @@ test('a failed event transaction advances neither cursor nor deduplication ident
       }
       const unchanged = await store.browserEventState(session, 'run');
       const retry = await store.acceptBrowserEvent(session, event('rejected'));
+
       return { failure, unchanged, retry, final: await store.browserEventState(session, 'run') };
     },
     { modulePath, session },
   );
+
   expect(result.failure).toContain('Injected storage failure');
   expect(result.unchanged.cursor).toBe('accepted');
   expect(result.unchanged.events.map((event: { id: string }) => event.id)).toEqual(['accepted']);
@@ -248,6 +257,7 @@ test('failed migration retains the legacy cursor and IDs until the transaction s
       }
       const preserved = JSON.parse(localStorage.getItem(session)!);
       const state = await store.browserEventState(session, 'run');
+
       return {
         failed,
         preserved,
@@ -258,6 +268,7 @@ test('failed migration retains the legacy cursor and IDs until the transaction s
     },
     { modulePath, session },
   );
+
   expect(result.failed).toBe(true);
   expect(result.preserved).toEqual(result.legacy);
   expect(result.state.cursor).toBe('legacy');

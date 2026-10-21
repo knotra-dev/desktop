@@ -38,17 +38,21 @@ export function sources(graph: Graph, imports?: Map<string, Graph>): SourceOptio
 
 export function compatible(source: Port, target: Port): boolean {
   if (!!source.artifact !== !!target.artifact) return false;
+
   const artifact = target.artifact;
   if (source.artifact && artifact)
     return (
       !!source.artifact.collection === !!artifact.collection &&
       source.artifact.mediaTypes.every((type) => artifact.mediaTypes.includes(type))
     );
+
   const a = record(source.schema).type;
   const b = record(target.schema).type;
   if (!a || !b) return true; // Full schema compatibility is checked by the engine.
+
   const from = Array.isArray(a) ? a : [a];
   const to = Array.isArray(b) ? b : [b];
+
   return from.some((type) =>
     to.some(
       (targetType) =>
@@ -68,11 +72,13 @@ export function connectionError(
   const target = graph.nodes[connection.target];
   if (!source || !target) return 'Choose blocks in the same graph.';
   if (connection.source === connection.target) return 'A block cannot connect to itself.';
+
   const output = nodePorts(source, imports)[connection.sourcePort];
   const input = target.inputs?.[connection.targetPort];
   if (!output || !input) return 'Connect a named output to a named input.';
   if (!compatible(output, input))
     return 'These ports have different data types. Choose a compatible input or use a transformation.';
+
   const updated = {
     ...target,
     inputs: {
@@ -85,9 +91,11 @@ export function connectionError(
   };
   const nodes = { ...graph.nodes, [connection.target]: updated };
   const visited = new Set<string>();
+
   function reaches(id: string): boolean {
     if (id === connection.target) return true;
     if (visited.has(id)) return false;
+
     visited.add(id);
     return dependencies(nodes[id]).some((dep) => nodes[dep] && reaches(dep));
   }

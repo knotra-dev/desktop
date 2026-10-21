@@ -42,6 +42,7 @@ export function rollbackControlChange(previous: State, proposed: State, current:
   );
   const workspaces = current.workspaces.flatMap((workspace) => {
     if (!recoverable.has(workspace.id)) return [workspace];
+
     const original = previous.workspaces.find((item) => item.id === workspace.id);
     return original
       ? [{ ...original, ...(workspace.positions ? { positions: workspace.positions } : {}) }]
@@ -50,6 +51,7 @@ export function rollbackControlChange(previous: State, proposed: State, current:
   for (const workspace of previous.workspaces)
     if (recoverable.has(workspace.id) && !workspaces.some((item) => item.id === workspace.id))
       workspaces.push(workspace);
+
   return {
     ...current,
     workspaces,
@@ -80,6 +82,7 @@ export async function controlWorkspace(
       'conflict',
       'Pipeline changed. Read it again and use its latest revision before editing.',
     );
+
   return workspace;
 }
 
@@ -106,6 +109,7 @@ export async function applyPipelineControl(
       },
     };
   }
+
   const current =
     operation === 'pipeline_create'
       ? undefined
@@ -165,9 +169,11 @@ export async function applyPipelineControl(
       'invalid',
       'Positions must map block IDs to x and y coordinates.',
     );
+
   const source = (args.source as string | undefined) ?? current?.source;
   if (typeof source !== 'string')
     throw new DesktopControlError('invalid', 'Provide pipeline YAML in source.');
+
   const workspace: Workspace = {
     ...current,
     id: current?.id ?? crypto.randomUUID(),
@@ -194,6 +200,7 @@ export async function applyPipelineControl(
       check.diagnostics.find((item) => item.severity === 'error')?.message ??
         'Pipeline YAML does not match the contract.',
     );
+
   return {
     state: next,
     result: {

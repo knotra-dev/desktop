@@ -100,6 +100,7 @@ async function open(
           'resolution',
         ],
       };
+
       function engineRun() {
         const source = initial.workspaces[0]?.source ?? '# Immutable run package';
         return {
@@ -124,6 +125,7 @@ async function open(
           availableActions: responded ? [] : ['cancel'],
         };
       }
+
       function emit(event: string, payload: unknown) {
         for (const [id, listener] of listeners)
           if (listener.event === event) callbacks.get(listener.handler)?.({ event, id, payload });
@@ -177,6 +179,7 @@ async function open(
               if (failSave && JSON.stringify(args.value).includes(failSave)) {
                 throw new Error('Fixture storage unavailable');
               }
+
               sessionStorage.setItem('control.workspace', JSON.stringify(args.value));
               return;
             }
@@ -227,6 +230,7 @@ async function open(
               const before = sources.find((item) => item.id === args.id);
               if (before && args.expectedRevision !== before.revision)
                 throw new Error('Source changed. Close and reopen this source before saving.');
+
               const saved: SavedConnection = {
                 id: before?.id ?? `source_${++sequence}`,
                 revision: (before?.revision ?? 0) + 1,
@@ -236,6 +240,7 @@ async function open(
                 hasCredential: !!args.apiKey || !!before?.hasCredential,
               };
               sources = [...sources.filter((item) => item.id !== saved.id), saved];
+
               return saved;
             }
             if (command === 'desktop_mcp_connections_list') return [];
@@ -294,8 +299,10 @@ async function open(
                 responded = true;
                 return { accepted: true, requestId: call.requestId };
               }
+
               return { items: [], nextCursor: null };
             }
+
             return 1;
           },
         },
@@ -335,21 +342,25 @@ test('MCP pipeline creation and updates are immediately visible and persist acro
   await open(page, [existing, unrelated]);
   const created = await request(page, 'pipeline_create', { source: source() });
   expect(created.error).toBeUndefined();
+
   const first = created.result as { workspace: Workspace; revision: string };
   await expect(
     page.getByRole('heading', { name: 'Controlled pipeline', exact: true }),
   ).toBeVisible();
   await expect(page.getByTestId('rf__node-review')).toBeVisible();
+
   const beforeUpdate = await readPipeline(page, first.workspace.id);
   const updated = await request(page, 'pipeline_update', {
     id: first.workspace.id,
     source: source('Updated through MCP'),
     expectedRevision: beforeUpdate.revision,
   });
+
   expect(updated.error).toBeUndefined();
   await expect(
     page.getByRole('heading', { name: 'Updated through MCP', exact: true }),
   ).toBeVisible();
+
   const saved = await persisted(page);
   expect(saved.workspaces.slice(0, 2)).toEqual([existing, unrelated]);
   expect(saved.workspaces[2].source).toContain('Updated through MCP');
@@ -377,6 +388,7 @@ test('active editor typing and dirty drafts are protected even when the caller a
     source: source('Should not replace typing'),
     allowDirty: true,
   });
+
   expect(focused.error?.code).toBe('busy');
   expect(focused.error?.message).toMatch(/editing|finish|focused/i);
   await expect(prompt).toHaveValue('Unfinished prompt from the user');
@@ -385,28 +397,35 @@ test('active editor typing and dirty drafts are protected even when the caller a
   await expect
     .poll(async () => (await persisted(page)).workspaces[0].source)
     .toContain('Unfinished prompt from the user');
+
   const dirty = await readPipeline(page, 'existing');
   const stale = await request(page, 'pipeline_update', {
     id: 'existing',
     expectedRevision: read.revision,
     source: source('Stale edit'),
   });
+
   expect(stale.error?.code).toBe('conflict');
   expect(stale.error?.message).toContain('changed');
+
   const refused = await request(page, 'pipeline_update', {
     id: 'existing',
     expectedRevision: dirty.revision,
     source: source('Unacknowledged edit'),
   });
+
   expect(refused.error?.code).toBe('dirty');
   expect(refused.error?.message).toContain('unsaved changes');
+
   const accepted = await request(page, 'pipeline_update', {
     id: 'existing',
     expectedRevision: dirty.revision,
     source: source('Acknowledged edit'),
     allowDirty: true,
   });
+
   expect(accepted.error).toBeUndefined();
+
   const current = (await persisted(page)).workspaces[0];
   expect(current.source).toContain('Acknowledged edit');
   expect(current.files).toEqual(read.workspace.files);
@@ -434,8 +453,10 @@ test('concurrent MCP edits serialize and stale revisions cannot overwrite the ac
     },
     { revision: read.revision, first: source('First edit'), second: source('Second edit') },
   );
+
   expect(replies[0].error).toBeUndefined();
   expect(replies[1].error?.message).toContain('changed');
+
   const current = (await persisted(page)).workspaces[0];
   expect(current.source).toContain('First edit');
   expect(current.source).not.toContain('Second edit');
@@ -456,8 +477,10 @@ test('failed persistence rejects an MCP edit without changing the graph or saved
     expectedRevision: read.revision,
     source: source('Must not appear'),
   });
+
   expect(reply.error).toBeDefined();
   await expect(page.getByRole('heading', { name: 'Existing pipeline', exact: true })).toBeVisible();
+
   const after = await persisted(page);
   expect(after.workspaces[0].positions).toMatchObject(before.workspaces[0].positions!);
   expect({
@@ -480,6 +503,7 @@ test('MCP delete removes only the selected pipeline and keeps the remaining pack
     id: 'existing',
     expectedRevision: read.revision,
   });
+
   expect(removed.error).toBeUndefined();
   expect(removed.result).toEqual({ deleted: 'existing' });
   expect((await persisted(page)).workspaces).toEqual([other]);
@@ -528,6 +552,7 @@ test('MCP run and human-response commands refresh the visible app without replac
   await open(page, [workspace()]);
   const connected = await request(page, 'engine_connect', { url: 'http://127.0.0.1:8787' });
   expect(connected.error).toBeUndefined();
+
   const started = await request(page, 'engine_call', {
     op: 'start',
     definitionId: 'control-definition',
@@ -536,6 +561,7 @@ test('MCP run and human-response commands refresh the visible app without replac
     artifacts: {},
     operationId: 'control-start-1',
   });
+
   expect(started.result).toEqual({ run: { id: 'control-run' } });
   expect((await request(page, 'app_navigate', { section: 'runs' })).error).toBeUndefined();
   await expect(
@@ -558,14 +584,17 @@ test('MCP run and human-response commands refresh the visible app without replac
     }),
   );
   await expect(feedback).toHaveValue('Keep this unfinished response');
+
   const responded = await request(page, 'engine_call', {
     op: 'respond',
     requestId: 'control-request',
     outputs: { feedback: 'Approved through MCP' },
     operationId: 'control-response-1',
   });
+
   expect(responded.result).toEqual({ accepted: true, requestId: 'control-request' });
   await expect(feedback).toBeHidden();
+
   const downloaded = await request(page, 'artifact_download', { artifactId: 'control-artifact' });
   expect(downloaded.error).toBeUndefined();
   expect(downloaded.result).toMatchObject({
@@ -612,11 +641,13 @@ test('a source edit cannot overwrite a newer MCP change and keeps its unsubmitte
   await expect(
     models.getByRole('button', { name: 'Edit Changed through MCP', exact: true }),
   ).toBeVisible();
+
   const savedArgs = await page.evaluate(() =>
     (window as unknown as ControlFixture).controlCalls
       .filter((call) => call.command === 'desktop_connection_save')
       .map((call) => call.args),
   );
+
   expect(savedArgs).toHaveLength(1);
   expect(savedArgs[0].expectedRevision).toBe(1);
 });

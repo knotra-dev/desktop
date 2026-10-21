@@ -18,11 +18,14 @@ export function useDesktopControl(
 ) {
   const handler = useRef(execute);
   handler.current = execute;
+
   useEffect(() => {
     if (!desktop) return;
+
     let disposed = false;
     let release: (() => void)[] = [];
     let queue = Promise.resolve();
+
     void import('@tauri-apps/api/event')
       .then(async ({ listen }) => {
         const subscriptions = await Promise.all([
@@ -50,6 +53,7 @@ export function useDesktopControl(
                     },
                   };
                 }
+
                 await invoke('desktop_control_reply', reply).catch(() => {});
               });
           }),
@@ -63,16 +67,19 @@ export function useDesktopControl(
             },
           ),
         ]);
+
         if (disposed) {
           subscriptions.forEach((unlisten) => {
             unlisten();
           });
           return;
         }
+
         release = subscriptions;
         await invoke('desktop_control_ready', { ready: true });
       })
       .catch(() => {});
+
     return () => {
       disposed = true;
       release.forEach((unlisten) => {

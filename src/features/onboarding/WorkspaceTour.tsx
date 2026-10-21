@@ -66,6 +66,7 @@ export function WorkspaceTour({
 
   useEffect(() => {
     if (paused || document.querySelector(modalSelector)) return;
+
     const previousStep = focusedStepRef.current;
     focusedStepRef.current = step.id;
     const active = document.activeElement;
@@ -80,6 +81,7 @@ export function WorkspaceTour({
 
   useEffect(() => {
     if (paused) return;
+
     const previousStep = animatedStepRef.current;
     const direction = index >= previousIndexRef.current ? 1 : -1;
     animatedStepRef.current = step.id;

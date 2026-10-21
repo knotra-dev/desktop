@@ -33,6 +33,7 @@ function scalarDecorations(view: EditorView): DecorationSet {
           });
       },
     });
+
   return Decoration.set(
     marks.map((mark) => mark.value.range(mark.from, mark.to)),
     true,

@@ -60,13 +60,17 @@ export default function EngineExecutionView({
   const statuses = useMemo(() => (group ? graphStatuses(group) : {}), [group]);
   const selectedInstance = instances[selected];
   const node = group?.graph.nodes[selected];
+
   useEffect(() => {
     if (terminal(run.status)) return;
+
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [run.status]);
+
   useEffect(() => {
     if (!follow) return;
+
     const active = [...run.instances]
       .reverse()
       .find((item) => ['running', 'waiting_human', 'waiting_resolution'].includes(item.status));
@@ -78,15 +82,18 @@ export default function EngineExecutionView({
       setEdge(undefined);
     }
   }, [follow, run.instances, groups]);
+
   const counts = run.instances.reduce<Record<string, number>>((counts, instance) => {
     counts[instance.status] = (counts[instance.status] ?? 0) + 1;
     return counts;
   }, {});
+
   function pick(id: string) {
     setSelected(id);
     setEdge(undefined);
     setFollow(false);
   }
+
   function pickInstance(instance: EngineInstance) {
     const location = groups.find((item) =>
       item.instances.some((entry) => entry.id === instance.id),
@@ -96,6 +103,7 @@ export default function EngineExecutionView({
       pick(instance.nodeId);
     }
   }
+
   function groupLabel(entry: ExecutionGraph) {
     if (entry.key === 'root') return t('execution.rootGraph');
     const labels: string[] = [];
@@ -114,6 +122,7 @@ export default function EngineExecutionView({
     }
     return labels.length ? labels.join(' / ') : entry.scope;
   }
+
   const observations = useMemo(
     () =>
       Object.fromEntries(
@@ -156,6 +165,7 @@ export default function EngineExecutionView({
   const unresolved = run.availableActions.includes('resolve')
     ? run.instances.filter((instance) => instance.status === 'waiting_resolution')
     : [];
+
   return (
     <div className="execution-observer flex flex-col min-w-0 w-full border border-solid border-line rounded-[12px] overflow-hidden bg-surface">
       <div className="execution-summary flex items-center justify-between flex-wrap gap-2.5 shrink-0 border-b border-solid border-b-line bg-surface-raised px-3.75 py-3">

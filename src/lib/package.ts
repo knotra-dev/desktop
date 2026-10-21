@@ -10,6 +10,7 @@ function imports(graph: Graph): string[] {
     if (node.type === 'foreach' || node.type === 'loop') {
       return imports(record(record(node[node.type]).body) as unknown as Graph);
     }
+
     return [];
   });
 }
@@ -22,15 +23,19 @@ export function allowedFiles<T extends DraftPackage>(opened: T): T {
 
   function walk(source: string, path: string) {
     if (visited.has(path)) return;
+
     visited.add(path);
     if (visited.size > 512) throw new Error('Too many package files.');
+
     const pipeline = parsePipeline(source);
     if (!pipeline) return;
+
     for (const name of pipeline.spec.files ?? []) declared.add(name);
 
     for (const name of imports(pipeline.spec)) {
       const file = files.get(name);
       if (!file || !(pipeline.spec.files ?? []).includes(name)) continue;
+
       let child: string;
       try {
         child = decodeText(file.content);
@@ -42,5 +47,6 @@ export function allowedFiles<T extends DraftPackage>(opened: T): T {
   }
 
   walk(opened.source, opened.entrypoint);
+
   return { ...opened, files: opened.files.filter((file) => declared.has(file.path)) };
 }

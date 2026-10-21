@@ -187,6 +187,7 @@ test.beforeEach(async () => {
         { code: 'READ_ONLY_FIXTURE', message: 'No mutations expected', diagnostics: [] },
         405,
       );
+
     const url = new URL(request.url!, endpoint);
     if (url.pathname === '/v1/info')
       return json(response, {
@@ -218,6 +219,7 @@ test.beforeEach(async () => {
       streams.push(response);
       return;
     }
+
     return json(response, { code: 'NOT_FOUND', message: url.pathname, diagnostics: [] }, 404);
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -255,6 +257,7 @@ async function openTimeline(page: Page, locale: 'en' | 'ru', theme: 'dark' | 'li
     .locator('.underline-tabs')
     .getByRole('button', { name: t['execution.timeline'], exact: true })
     .click();
+
   return t;
 }
 
@@ -277,6 +280,7 @@ for (const locale of ['en', 'ru'] as const)
       await expect(timeline).toContainText(t['timeline.retry']);
       await expect(timeline).toContainText(t['timeline.attempt'].replace('{count}', '2'));
       await expect(timeline).toContainText(t['observe.iteration'].replace('{count}', '2'));
+
       const streaming = rows.filter({ hasText: t['observe.modelCall'] });
       await expect(streaming).toHaveCount(1);
       await expect(streaming).toContainText(t['timeline.incomplete']);
@@ -295,6 +299,7 @@ for (const locale of ['en', 'ru'] as const)
         name: t['timeline.technicalDetails'],
         exact: true,
       });
+
       await expect(details).toHaveCount(8);
       for (const detail of await details.all())
         await expect(detail).toHaveAttribute('aria-expanded', 'false');
@@ -364,6 +369,7 @@ test('long step names and completed model time ranges remain readable', async ({
   const t = await openTimeline(page, 'en', 'dark');
   const timeline = page.locator('.run-timeline');
   await expect(timeline.locator('ol > .timeline-event')).toHaveCount(8);
+
   const model = timeline
     .locator('.timeline-event')
     .filter({ hasText: t['timeline.modelCompleted'] });

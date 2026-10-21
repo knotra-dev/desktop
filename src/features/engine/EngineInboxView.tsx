@@ -40,6 +40,7 @@ export function EngineInboxView({
   };
   const runTitle = (item: EngineRequest) =>
     engine.runs.find((run) => run.id === item.runId)?.title ?? item.runId;
+
   return (
     <section className="page inbox-page pb-8.75 min-h-full">
       <header className="page-heading flex items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">
@@ -118,6 +119,7 @@ function ReviewValue({ value }: { value: Json }) {
       </dl>
     );
   }
+
   return (
     <p className="whitespace-pre-wrap wrap-anywhere text-[13px] leading-relaxed text-secondary">
       {value === null
@@ -153,13 +155,16 @@ function EngineResponse({
   const [localError, setLocalError] = useState('');
   const [jsonError, setJsonError] = useState(false);
   const [busy, setBusy] = useState(false);
+
   async function submit() {
     if (request.responseSchema === null) return;
+
     setError('');
     setLocalError('');
     setJsonError(false);
     setBusy(true);
     let localFailure = '';
+
     try {
       const outputs = JSON.parse(value);
       if (!outputs || typeof outputs !== 'object' || Array.isArray(outputs)) {
@@ -185,6 +190,7 @@ function EngineResponse({
       setBusy(false);
     }
   }
+
   return (
     <div className="review-card flex-1 min-w-0 bg-surface border border-solid border-line rounded-[20px] overflow-hidden">
       <header>

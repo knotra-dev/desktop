@@ -39,15 +39,18 @@ export function appendReplayEvents(
   )) {
     const size = new TextEncoder().encode(JSON.stringify(event)).byteLength;
     if (events.length >= maxEvents || bytes + size > maxBytes) return { events, limited: true };
+
     events.push(event);
     bytes += size;
   }
+
   return { events, limited: false };
 }
 
 function context(value: unknown): EngineInstance['inputs'] {
   const envelope = record(value);
   if (!Object.hasOwn(envelope, 'values') || !Object.hasOwn(envelope, 'artifacts')) return;
+
   return {
     values: record(envelope.values) as Record<string, Json>,
     artifacts: record(envelope.artifacts) as Record<string, Json>,
@@ -72,9 +75,11 @@ export function replayRun(run: EngineRun, events: EngineEvent[], count: number):
   const identity = new Map(run.instances.map((instance) => [instance.id, instance]));
   for (const event of events.slice(0, Math.max(0, count))) {
     if (event.runId !== run.id || (event.type !== 'node' && event.type !== 'run')) continue;
+
     const data = record(event.data);
     const status = text(data.status) ?? event.message;
     if (!statuses.has(status as EngineStatus)) continue;
+
     historical.updatedAt = event.at;
     if (event.type === 'run') {
       historical.status = status as EngineStatus;
@@ -82,6 +87,7 @@ export function replayRun(run: EngineRun, events: EngineEvent[], count: number):
       continue;
     }
     if (!event.instanceId) continue;
+
     const known = identity.get(event.instanceId);
     const previous = instances.get(event.instanceId);
     const next: EngineInstance = {
@@ -117,6 +123,7 @@ export function replayRun(run: EngineRun, events: EngineEvent[], count: number):
     instances.set(next.id, next);
   }
   historical.instances = [...instances.values()];
+
   return historical;
 }
 
@@ -139,6 +146,7 @@ export interface ValueChange {
   before?: unknown;
   after?: unknown;
 }
+
 export function valueChanges(
   before: Record<string, unknown>,
   after: Record<string, unknown>,
@@ -155,6 +163,7 @@ export function valueChanges(
 function prompts(run: EngineRun): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const files = new Map(run.package.files.map((file) => [file.path, file.content]));
+
   function visit(scope: string, graph: Graph, path = '') {
     for (const [id, node] of Object.entries(graph.nodes)) {
       const address = `${path}/nodes/${id}`;
@@ -162,6 +171,7 @@ function prompts(run: EngineRun): Record<string, unknown> {
       if (['llm', 'agent', 'human'].includes(node.type)) {
         for (const source of ['prompt', 'instructions']) {
           if (!config[source]) continue;
+
           const prompt = record(config[source]);
           let contents: string | undefined;
           if (typeof prompt.file === 'string') {
@@ -183,6 +193,7 @@ function prompts(run: EngineRun): Record<string, unknown> {
     }
   }
   for (const [scope, graph] of packageGraphs(run)) visit(scope, graph);
+
   return result;
 }
 
@@ -203,6 +214,7 @@ export function instanceAddresses(
 ): Map<string, { key: string; ambiguous: boolean }> {
   const byId = new Map(run.instances.map((instance) => [instance.id, instance]));
   const result = new Map<string, { key: string; ambiguous: boolean }>();
+
   function address(
     instance: EngineInstance,
     visited = new Set<string>(),
@@ -210,6 +222,7 @@ export function instanceAddresses(
     const cached = result.get(instance.id);
     if (cached) return cached;
     if (visited.has(instance.id)) return { key: instance.nodeId, ambiguous: true };
+
     const next = new Set(visited).add(instance.id);
     const parent = instance.parentInstanceId && byId.get(instance.parentInstanceId);
     const ancestor = parent ? address(parent, next) : undefined;
@@ -219,15 +232,18 @@ export function instanceAddresses(
       ambiguous: Boolean(ancestor?.ambiguous || (instance.parentInstanceId && !parent)),
     };
     result.set(instance.id, value);
+
     return value;
   }
   for (const instance of run.instances) address(instance);
   const counts = new Map<string, number>();
   for (const value of result.values()) counts.set(value.key, (counts.get(value.key) ?? 0) + 1);
   for (const value of result.values()) if ((counts.get(value.key) ?? 0) > 1) value.ambiguous = true;
+
   function ambiguousAncestor(instance: EngineInstance, visited = new Set<string>()): boolean {
     if (visited.has(instance.id) || result.get(instance.id)?.ambiguous) return true;
     if (!instance.parentInstanceId) return false;
+
     const parent = byId.get(instance.parentInstanceId);
     return !parent || ambiguousAncestor(parent, new Set(visited).add(instance.id));
   }
@@ -235,6 +251,7 @@ export function instanceAddresses(
     const value = result.get(instance.id);
     if (value && ambiguousAncestor(instance)) value.ambiguous = true;
   }
+
   return result;
 }
 
@@ -249,6 +266,7 @@ function compareInstances(before: EngineRun, after: EngineRun): InstanceChange[]
     for (const instance of run.instances) {
       const address = addresses.get(instance.id);
       if (!address) continue;
+
       const key = address.ambiguous ? `${address.key} · ${run.id}/${instance.id}` : address.key;
       const row = rows.get(key) ?? {
         key: address.key,
@@ -259,6 +277,7 @@ function compareInstances(before: EngineRun, after: EngineRun): InstanceChange[]
       rows.set(key, row);
     }
   }
+
   return [...rows.values()]
     .map((row) => {
       row.beforeDuration = duration(row.before?.startedAt, row.before?.finishedAt);
@@ -279,6 +298,7 @@ export function compareRuns(before: EngineRun, after: EngineRun) {
   const instancesComplete = !before.instancesNextCursor && !after.instancesNextCursor;
   const files = (run: EngineRun) =>
     Object.fromEntries(run.package.files.map((file) => [file.path, file.content]));
+
   return {
     source: valueChanges(
       { [before.package.entrypoint]: before.package.source },

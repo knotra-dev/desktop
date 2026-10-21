@@ -39,8 +39,10 @@ export function EngineReplayView({
   const revision = useRef(0);
   const loading = useRef(false);
   const loadedRun = useRef('');
+
   async function load(reset: boolean) {
     if (!connected || loading.current) return;
+
     loading.current = true;
     const generation = revision.current;
     setBusy(true);
@@ -50,6 +52,7 @@ export function EngineReplayView({
     let inspected = reset ? 0 : scanned;
     let done = false,
       capped = false;
+
     try {
       // Bound each action's network work. The continuation remains explicit.
       for (let page = 0; page < 20; page++) {
@@ -69,6 +72,7 @@ export function EngineReplayView({
         nextCursor = result.nextCursor;
         if (done || capped) break;
       }
+
       setEvents(nextEvents);
       setCursor(nextCursor);
       setComplete(done);
@@ -84,6 +88,7 @@ export function EngineReplayView({
       }
     }
   }
+
   const initialize = useEffectEvent((runId: string, isConnected: boolean) => {
     revision.current++;
     loading.current = false;
@@ -103,6 +108,7 @@ export function EngineReplayView({
     setError('');
     if (isConnected && (changedRun || events.length === 0)) void load(true);
   });
+
   useEffect(() => {
     initialize(run.id, connected);
     return () => {
@@ -110,6 +116,7 @@ export function EngineReplayView({
       loading.current = false;
     };
   }, [run.id, connected]);
+
   const historical = useMemo(() => replayRun(run, events, count), [run, events, count]);
   const graphs = useMemo(() => packageGraphs(run), [run]);
   const groups = useMemo(() => executionGraphs(historical, graphs), [historical, graphs]);
@@ -117,6 +124,7 @@ export function EngineReplayView({
   const instances = graphInstances(group);
   const selectedInstance = group?.key === groupKey ? instances[selected] : undefined;
   const current = events[count - 1];
+
   return (
     <section
       className="history-view min-w-0 flex flex-col gap-3.5"

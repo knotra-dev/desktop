@@ -81,6 +81,7 @@ function definition(): Pipeline {
     tool: { server: 'library', name: 'search', arguments: { value: {} }, response: 'content' },
     outputs: { result: { schema: { type: 'array', items: { type: 'object' } } } },
   };
+
   return pipeline;
 }
 
@@ -170,8 +171,10 @@ async function open(
                 return {
                   items: [{ id: 'local', title: 'Local environment', revision: 'fixture' }],
                 };
+
               return { items: [], nextCursor: null };
             }
+
             return 1;
           },
         },
@@ -188,6 +191,7 @@ async function open(
     .getByRole('button', { name: t['navigation.resources'], exact: true })
     .click();
   await expect(page.locator('[data-resource-node="write_draft"]')).toBeVisible();
+
   return { t, errors };
 }
 
@@ -314,6 +318,7 @@ test('a nested assignment opens and changes only its own block', async ({ page }
       return changed.spec.models![String(record(nestedReview.llm).model)]?.model;
     })
     .toBe('vendor/reasoning');
+
   const changed = await pipeline(page);
   expect(changed.spec.nodes.write_draft).toEqual(value.spec.nodes.write_draft);
   expect(changed.spec.models!.writer).toEqual(value.spec.models!.writer);
@@ -341,6 +346,7 @@ test('code blocks select an environment without changing shared blocks or mounte
     name: t['editor.sandboxEnvironment'],
     exact: true,
   });
+
   await expect(environment).toHaveValue('python_box');
   await expect(environment.locator('option')).toContainText([
     t['resources.pythonSandbox'],
@@ -353,6 +359,7 @@ test('code blocks select an environment without changing shared blocks or mounte
       return value.spec.sandboxes![value.spec.nodes.write_file.sandbox!]?.profile;
     })
     .toBe('node_box');
+
   const changed = await pipeline(page);
   expect(changed.spec.nodes.copy_file).toEqual(original.spec.nodes.copy_file);
   expect(changed.spec.sandboxes!.work).toEqual(original.spec.sandboxes!.work);
@@ -382,6 +389,7 @@ test('saved assignments remain readable offline and are never silently changed',
     name: t['editor.sandboxEnvironment'],
     exact: true,
   });
+
   await expect(environment).toHaveValue('python_box');
   await expect(environment.locator('option:checked')).toContainText(t['resources.pythonSandbox']);
   expect((await activeWorkspace(page)).source).toBe(source);
@@ -425,6 +433,7 @@ test('agent file and command permissions preserve its MCP tools and shared envir
       mcp: { library: ['search'] },
       sandbox: ['files.write'],
     });
+
   const changed = await pipeline(page);
   expect(changed.spec.sandboxes).toEqual(original.spec.sandboxes);
   expect(changed.spec.nodes.write_file).toEqual(original.spec.nodes.write_file);
@@ -447,6 +456,7 @@ test('a missing environment stays selected and visible until the user chooses a 
     name: t['editor.sandboxEnvironment'],
     exact: true,
   });
+
   await expect(environment).toHaveValue('python_box');
   await expect(environment.locator('option:checked')).toContainText(t['resources.pythonSandbox']);
   expect((await activeWorkspace(page)).source).toBe(source);

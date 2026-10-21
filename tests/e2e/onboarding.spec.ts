@@ -21,6 +21,7 @@ async function buildLearningPipeline(page: Page) {
   await tour(page).getByRole('button', { name: 'Create learning pipeline', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'My first pipeline', exact: true })).toBeVisible();
   await expect(page.locator('.react-flow__node')).toHaveCount(1);
+
   const instructions = page.getByRole('textbox', { name: 'Instructions', exact: true });
   await instructions.fill(
     'Answer the supplied question in two clear sentences. Return the answer as text.',
@@ -69,6 +70,7 @@ test('fresh launch is empty and the lesson teaches editing, adding and connectin
   await expect(tour(page)).toHaveCSS('position', 'fixed');
   await tour(page).getByRole('button', { name: 'Skip model setup', exact: true }).click();
   await expect(tour(page)).toContainText('6 of 8');
+
   const model = page.getByRole('combobox', { name: 'Model', exact: true });
   await expect(model).toHaveValue('');
   await expect(model).toBeDisabled();
@@ -90,6 +92,7 @@ test('fresh launch is empty and the lesson teaches editing, adding and connectin
   await page.reload();
   await expect(tour(page)).toHaveCount(0);
   await expect(page.locator('.pipeline-card')).toHaveCount(1);
+
   const state = await savedWorkspace(page);
   expect(state.runs).toEqual([]);
   expect(state.workspaces).toHaveLength(1);
@@ -171,6 +174,7 @@ test('replay preserves a lesson changed beyond its starting blocks and offers a 
   await expect
     .poll(async () => parse((await savedWorkspace(page)).workspaces[0].source).spec.nodes.answer)
     .toBeUndefined();
+
   const edited = (await savedWorkspace(page)).workspaces[0];
   await page
     .locator('.sidebar-bottom')
@@ -181,6 +185,7 @@ test('replay preserves a lesson changed beyond its starting blocks and offers a 
   await tour(page).getByRole('button', { name: 'Create learning pipeline', exact: true }).click();
   await expect(page.locator('.react-flow__node')).toHaveCount(1);
   await expect(page.locator('.sidebar-pipelines > button')).toHaveCount(2);
+
   const after = await savedWorkspace(page);
   expect(after.workspaces.find((workspace: { id: string }) => workspace.id === edited.id)).toEqual(
     edited,
@@ -189,6 +194,7 @@ test('replay preserves a lesson changed beyond its starting blocks and offers a 
 
 test.describe('Russian lesson on a smaller desktop window', () => {
   test.use({ locale: 'ru-RU', viewport: { width: 1000, height: 700 } });
+
   test('starts empty and leaves the prompt visible beside the light-theme guide', async ({
     page,
   }, testInfo) => {
@@ -204,6 +210,7 @@ test.describe('Russian lesson on a smaller desktop window', () => {
     await guide.getByRole('button', { name: ru['tour.createLesson'], exact: true }).click();
     const prompt = page.getByRole('textbox', { name: ru['editor.instructions'], exact: true });
     await expect(prompt).toHaveValue(ru['tour.pipeline.prompt']);
+
     const cardBox = (await guide.boundingBox())!;
     const promptBox = (await prompt.boundingBox())!;
     expect(cardBox.x).toBeGreaterThanOrEqual(0);
@@ -235,7 +242,9 @@ test('learning pipeline runs on a real engine and delivers its answer to human r
   page,
 }, testInfo) => {
   const endpoint = process.env.KNOTRA_E2E_ENDPOINT;
+
   test.skip(!endpoint, 'Set KNOTRA_E2E_ENDPOINT for the real model learning pipeline check.');
+
   test.setTimeout(180_000);
   await page.goto('/');
   await buildLearningPipeline(page);
@@ -275,6 +284,7 @@ test('learning pipeline runs on a real engine and delivers its answer to human r
     .fill('Reviewed during the learning tour.');
   await page.getByRole('button', { name: 'Submit response', exact: true }).click();
   await expect(requestRow).toHaveCount(0);
+
   const response = await page.request.get(`${endpoint}/v1/runs`);
   const run = (await response.json()).items.find(
     (item: { title: string }) => item.title === 'My first pipeline',
@@ -285,6 +295,7 @@ test('learning pipeline runs on a real engine and delivers its answer to human r
         (await (await page.request.get(`${endpoint}/v1/runs/${run.id}`)).json()).run.status,
     )
     .toBe('succeeded');
+
   const completed = (await (await page.request.get(`${endpoint}/v1/runs/${run.id}`)).json()).run;
   expect(completed.outputs.answer).toEqual(expect.any(String));
   expect(completed.outputs.answer.length).toBeGreaterThan(0);

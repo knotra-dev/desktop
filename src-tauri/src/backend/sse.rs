@@ -21,6 +21,7 @@ impl Parser {
     pub fn push(&mut self, bytes: &[u8]) -> Result<Vec<Frame>> {
         let mut frames = Vec::new();
         self.bytes.extend_from_slice(bytes);
+
         for byte in std::mem::take(&mut self.bytes) {
             if byte == b'\n' && self.cr {
                 self.cr = false;
@@ -43,6 +44,7 @@ impl Parser {
                             data: self.data.join("\n"),
                         });
                     }
+
                     self.id.clear();
                     self.data.clear();
                     self.size = 0;
@@ -74,6 +76,7 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn fragmented_unicode_multiline_and_heartbeats() {
         let payload = ": ping\r\nid: e1\r\ndata: {\"text\":\"Привет\",\r\ndata: \"n\":1}\r\n\r\n";

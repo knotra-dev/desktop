@@ -25,6 +25,7 @@ export function EngineArtifactsView({ engine }: { engine: EngineController }) {
   );
   const artifact = files.find((artifact) => artifact.id === selected);
   const artifactId = artifact?.id;
+
   useEffect(() => {
     let current = true;
     setPreview('');
@@ -59,6 +60,7 @@ export function EngineArtifactsView({ engine }: { engine: EngineController }) {
       current = false;
     };
   }, [artifactId, engine.info]);
+
   return (
     <section className="page pb-8.75 min-h-full">
       <header className="page-heading flex items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">

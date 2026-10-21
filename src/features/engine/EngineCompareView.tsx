@@ -11,6 +11,7 @@ import { HistoryPreview } from './HistoryPreview';
 function Changes({ label, changes }: { label: string; changes: ValueChange[] }) {
   const { t } = useI18n();
   const [limit, setLimit] = useState(30);
+
   return (
     <details
       className="history-change-section border border-solid border-line rounded-[9px] p-3.5"
@@ -81,11 +82,13 @@ export function EngineCompareView({
   const [error, setError] = useState('');
   const [limit, setLimit] = useState(100);
   const revision = useRef(0);
+
   useEffect(() => {
     const generation = ++revision.current;
     setError('');
     setBusy(false);
     if (!connected) return;
+
     setBefore(undefined);
     if (selected) {
       setBusy(true);
@@ -104,12 +107,15 @@ export function EngineCompareView({
       revision.current++;
     };
   }, [selected, connected]);
+
   async function loadBaselineInstances() {
     if (!connected || !before?.instancesNextCursor || busy) return;
+
     const generation = revision.current;
     const cursor = before.instancesNextCursor;
     setBusy(true);
     setError('');
+
     try {
       const page = await engineCall<Page<EngineInstance>>({
         op: 'instances',
@@ -132,8 +138,10 @@ export function EngineCompareView({
       if (generation === revision.current) setBusy(false);
     }
   }
+
   const comparison = useMemo(() => (before ? compareRuns(before, run) : undefined), [before, run]);
   const rows = comparison?.instances ?? [];
+
   return (
     <section
       className="history-view min-w-0 flex flex-col gap-3.5"

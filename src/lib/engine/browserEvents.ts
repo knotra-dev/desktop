@@ -15,6 +15,7 @@ interface EventState {
 // the synchronous, quota-limited localStorage snapshot used by other UI state.
 function openDatabase(): Promise<IDBDatabase> {
   if (database) return database;
+
   database = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DATABASE, 1);
     let failed = false;
@@ -34,6 +35,7 @@ function openDatabase(): Promise<IDBDatabase> {
         db.close();
         return;
       }
+
       db.onversionchange = () => {
         db.close();
         database = undefined;
@@ -46,6 +48,7 @@ function openDatabase(): Promise<IDBDatabase> {
     database = undefined;
     throw storageError(error);
   });
+
   return database;
 }
 
@@ -90,6 +93,7 @@ export function eventWindow(events: EngineEvent[]): EngineEvent[] {
   while (start > 0 && events.length - start < 1000) {
     const size = JSON.stringify(events[start - 1]).length;
     if (characters + size > 512 * 1024 && start < events.length) break;
+
     characters += size;
     start--;
   }
@@ -107,6 +111,7 @@ function removeLegacyEvents(session: string, runId: string) {
     const value = legacyCache(session);
     const keys = [`events:${runId}`, `eventIds:${runId}`, `cursor:${runId}`];
     if (!keys.some((key) => Object.hasOwn(value.cache, key))) return;
+
     for (const key of keys) delete value.cache[key];
     localStorage.setItem(session, JSON.stringify(value));
   } catch {
@@ -136,6 +141,7 @@ async function withEventState<T>(
           operation(tx, existing.result as EventState, result, abort);
           return;
         }
+
         const saved = legacyCache(session).cache;
         const events = (saved[`events:${runId}`] ?? []) as EngineEvent[];
         const cursor = saved[`cursor:${runId}`] as string | undefined;
@@ -155,6 +161,7 @@ async function withEventState<T>(
     };
   });
   if (migrated) removeLegacyEvents(session, runId);
+
   return value;
 }
 
@@ -178,6 +185,7 @@ export function acceptBrowserEvent(session: string, event: EngineEvent): Promise
           result(false);
           return;
         }
+
         ids.put(true, identity);
         tx.objectStore('runs').put({
           ...state,

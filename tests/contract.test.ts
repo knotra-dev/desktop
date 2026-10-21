@@ -24,6 +24,7 @@ describe('repository contracts in the desktop workbench', () => {
       expect(result.pipeline).toBeDefined();
       expect(result.diagnostics.some((d) => d.code === 'ENGINE_ADMISSION_REQUIRED')).toBe(true);
     });
+
   it('rejects every fixture that the authoritative manifest marks structurally invalid', () => {
     const manifest = JSON.parse(fixture('manifest.json'));
     for (const entry of manifest.cases)
@@ -61,36 +62,44 @@ describe('repository contracts in the desktop workbench', () => {
     it(`rejects unsupported YAML ${source}`, () => {
       expect(errors(source).some((d) => d.layer === 'parse')).toBe(true);
     });
+
   it('requires supporting files and preserves imported output ports', () => {
     const llm = examples.find((e) => e.id === 'llm')!;
     expect(validatePipeline(llm.source).diagnostics.some((d) => d.code === 'FILE_MISSING')).toBe(
       true,
     );
+
     const sub = examples.find((e) => e.id === 'subpipeline')!;
     expect(
       validatePipeline(sub.source, sub.files).diagnostics.filter((d) => d.severity === 'error'),
     ).toEqual([]);
   });
+
   it('rejects folded path conflicts and traversal', () => {
     const files = ['A.txt', 'a.txt'].map((path) => ({
       path,
       content: base64(textBytes('contents')),
     }));
+
     expect(
       validatePipeline(RESEARCH_SOURCE, files).diagnostics.some((d) => d.code === 'PATH_INVALID'),
     ).toBe(true);
     for (const path of ['../x', '/x', 'a//x', 'a\\x', 'C:x', 'x\n', 'x/./y'])
       expect(validPath(path)).toBe(false);
   });
+
   it('builds dependencies without treating literal strings as graph references', () => {
     const p = parsePipeline(RESEARCH_SOURCE)!;
     expect(graphOrder(p.spec).cycle).toEqual([]);
+
     const order = graphOrder(p.spec).order;
     expect(order.indexOf('discover')).toBeLessThan(order.indexOf('research'));
     expect(order.indexOf('review')).toBeLessThan(order.indexOf('publish'));
+
     const switchP = parsePipeline(examples.find((e) => e.id === 'switch')!.source)!;
     expect(Object.keys(nodePorts(switchP.spec.nodes.choose))).toEqual(['route']);
   });
+
   it('validates human responses by their declared output ports', () => {
     const p = parsePipeline(RESEARCH_SOURCE)!;
     expect(validateResponse(p, 'review', { feedback: 'Reviewed.' })).toEqual([]);

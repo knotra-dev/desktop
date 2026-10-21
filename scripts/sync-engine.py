@@ -28,6 +28,7 @@ def snapshot(engine, revision):
     archive = subprocess.check_output(
         ["git", "-C", str(engine), "archive", commit, *PATHS]
     )
+
     files = {}
     with tarfile.open(fileobj=io.BytesIO(archive)) as tree:
         for member in tree:
@@ -39,6 +40,7 @@ def snapshot(engine, revision):
             if not member.isfile():
                 raise ValueError("expected a regular file: " + member.name)
             files[member.name] = tree.extractfile(member).read()
+
     manifest = {
         "repository": SOURCE,
         "commit": commit,
@@ -48,6 +50,7 @@ def snapshot(engine, revision):
         },
     }
     files["manifest.json"] = (json.dumps(manifest, indent=2) + "\n").encode()
+
     return files
 
 
@@ -66,8 +69,10 @@ def main():
     parser.add_argument("revision", help="explicit engine commit or ref")
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
+
     files = snapshot(args.engine.resolve(), args.revision)
     destination = Path(__file__).resolve().parents[1] / "vendor/engine"
+
     if args.check:
         if not check(destination, files):
             parser.exit(1, "engine snapshot differs; run sync-engine.py without --check\n")
@@ -83,6 +88,7 @@ def main():
         if destination.exists():
             shutil.rmtree(destination)
         staged.rename(destination)
+
     print("engine snapshot matches " + json.loads(files["manifest.json"])["commit"])
 
 

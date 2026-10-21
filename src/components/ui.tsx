@@ -94,6 +94,7 @@ export function Status({ status }: { status: RunStatus | NodeStatus }) {
     cancelled: 'execution.cancelled',
     skipped: 'shell.skipped',
   };
+
   return (
     <span className={`status status-${status}`}>
       <span />
@@ -142,6 +143,7 @@ export function Modal({
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+
   useEffect(() => {
     const previous = document.activeElement as HTMLElement;
     const panel = ref.current;
@@ -173,6 +175,7 @@ export function Modal({
       previous?.focus();
     };
   }, []);
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: Pointer dismissal supplements the dialog Escape handler and accessible close button.
     <div
@@ -225,5 +228,6 @@ export function size(bytes: number, locale: Locale = 'en'): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   }).format(bytes / 1024);
+
   return `${amount} ${translate('units.kilobytes', locale)}`;
 }

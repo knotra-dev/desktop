@@ -59,6 +59,7 @@ export function ConnectionsView({
       manage: 'resources.manageEngine',
     },
   } satisfies Record<ResourceKind, { title: MessageKey; icon: typeof Bot; manage: MessageKey }>;
+
   return (
     <section className="page pb-8.75 min-h-full">
       <header className="page-heading flex flex-wrap items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">
@@ -187,11 +188,14 @@ export function SettingsView({
   const manualConnected = !!engine.info && (!desktop || engineMode === 'manual');
   const manualError = !desktop || engineMode === 'manual' ? engine.error : '';
   const connectionHelp = useId();
+
   useEffect(() => setUrl(engineUrl), [engineUrl]);
+
   async function connect() {
     const accessToken = token || undefined;
     setToken('');
     let endpoint: string;
+
     try {
       endpoint = engineEndpoint(url.trim(), accessToken);
       setError('');
@@ -210,6 +214,7 @@ export function SettingsView({
       onManualEngineAction?.(endpoint);
     }
   }
+
   return (
     <section className="page settings-page pb-8.75 min-h-full">
       <header className="page-heading flex items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">

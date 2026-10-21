@@ -71,6 +71,7 @@ describe('typed package file references', () => {
         ...files,
         { path: 'instructions.txt', content: base64(textBytes('Read this text.')) },
       ];
+
       expect(errors(pipeline, supplied).some((error) => error.code === 'FILE_UNDECLARED')).toBe(
         true,
       );
@@ -114,6 +115,7 @@ describe('typed package file references', () => {
       { ...childFile, content: base64(textBytes(stringify(child))) },
       { path: 'child-prompt.txt', content: base64(textBytes('Write a response.')) },
     ];
+
     expect(errors(pipeline, supplied).some((error) => error.code === 'FILE_UNDECLARED')).toBe(true);
     child.spec.files = ['child-prompt.txt'];
     supplied[0].content = base64(textBytes(stringify(child)));

@@ -89,6 +89,7 @@ describe('workspace loading and starter migration', () => {
       expect(readBackup(raw)).toEqual(state);
       vi.stubGlobal('localStorage', { getItem: () => raw });
       expect(loadState()).toEqual(state);
+
       const migrated = await migrateStarters(state);
       expect(migrated).toEqual({ ...state, starterRevision: 5 });
       expect(migrated.workspaces).toBe(state.workspaces);

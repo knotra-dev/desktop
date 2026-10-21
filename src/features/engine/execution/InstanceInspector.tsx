@@ -89,6 +89,7 @@ export function InstanceInspector({
       );
     return [rows.filter((row) => !routine(row)), rows.filter(routine)];
   }, [rows, node.type]);
+
   const children = run.instances.filter((item) => item.parentInstanceId === id && id);
   const blockers = dependencies(node).filter(
     (dependency) =>
@@ -98,8 +99,10 @@ export function InstanceInspector({
   const parent = run.instances.find((item) => item.id === instance?.parentInstanceId);
   const artifacts = instanceArtifacts(run, instance);
   const latest = ownEvents.at(-1);
+
   useEffect(() => {
     if (!follow || tab !== 'activity' || (!latest?.id && !activityRows.length)) return;
+
     const frame = requestAnimationFrame(() => {
       const body = inspectorBody.current;
       const list = activityList.current;
@@ -113,12 +116,14 @@ export function InstanceInspector({
     });
     return () => cancelAnimationFrame(frame);
   }, [follow, tab, latest?.id, activityRows.length]);
+
   const activeOperation = rows
     .filter(
       (row) => row.kind !== 'event' && !row.completed && row.attemptId === instance?.attemptId,
     )
     .at(-1);
   const config = record(node[node.type]);
+
   return (
     <aside
       className="execution-inspector w-[clamp(330px,_36%,_520px)] min-w-0 flex flex-col border-l border-solid border-l-line bg-surface-raised"

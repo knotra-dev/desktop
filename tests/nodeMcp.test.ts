@@ -178,12 +178,15 @@ describe('MCP response selection', () => {
     const custom = node();
     custom.outputs!.result.schema = { type: 'object', required: ['authored'] };
     expect(nodeMcpResponseDefaults(custom, text)).toBeUndefined();
+
     const described = node();
     described.outputs!.result.description = 'An authored result';
     expect(nodeMcpResponseDefaults(described, text)).toBeUndefined();
+
     const referenced = node();
     referenced.outputs!.result = { schemaRef: 'AuthorSchema' };
     expect(nodeMcpResponseDefaults(referenced, text)).toBeUndefined();
+
     const override = node();
     override.tool = { response: 'content' };
     expect(nodeMcpResponseDefaults(override, structured)).toBeUndefined();

@@ -56,6 +56,7 @@ function parse(source: string, diagnostics: Diagnostic[], filename: string): unk
     add('Pipeline exceeds the 8 MiB YAML limit.');
     return;
   }
+
   const lineCounter = new LineCounter();
   const documents = parseAllDocuments(source, {
     version: '1.2',
@@ -68,6 +69,7 @@ function parse(source: string, diagnostics: Diagnostic[], filename: string): unk
     add('Supply exactly one nonempty YAML document.');
     return;
   }
+
   const document = documents[0];
   for (const error of [...document.errors, ...document.warnings])
     add(error.message, error.linePos?.[0]?.line);
@@ -82,6 +84,7 @@ function parse(source: string, diagnostics: Diagnostic[], filename: string): unk
       add('YAML exceeds 64 levels of container nesting.');
       return visit.BREAK;
     }
+
     if (
       isAlias(node) ||
       ((isScalar(node) || isMap(node) || isSeq(node)) && (node.anchor || node.tag))
@@ -111,6 +114,7 @@ function parse(source: string, diagnostics: Diagnostic[], filename: string): unk
     }
   });
   if (diagnostics.some((d) => d.layer === 'parse' && d.path === filename)) return;
+
   return document.toJS({ maxAliasCount: 0 });
 }
 
@@ -145,6 +149,7 @@ export function validatePipeline(
     error('YAML_INVALID', String(e), entrypoint, 'parse');
   }
   if (diagnostics.length || !value) return { diagnostics };
+
   const structure = structural.validate(value);
   if (!structure.valid) {
     const unique = new Set<string>();
@@ -164,6 +169,7 @@ export function validatePipeline(
         '/',
         'structural',
       );
+
     return { diagnostics };
   }
   if (record(value).kind !== 'Pipeline') {
@@ -175,6 +181,7 @@ export function validatePipeline(
     );
     return { diagnostics };
   }
+
   const pipeline = value as Pipeline;
   if (!validPath(entrypoint))
     error('PATH_INVALID', 'Choose a normalized relative POSIX entrypoint.', entrypoint, 'package');
@@ -207,18 +214,22 @@ export function validatePipeline(
   const imported = new Map<string, Pipeline>();
   const active = new Set<string>([entrypoint]);
   const loaded = new Set<string>();
+
   function loadImports(p: Pipeline, depth = 0) {
     if (depth > 32) {
       error('IMPORT_DEPTH', 'Imports exceed 32 levels.', '/', 'package');
       return;
     }
+
     const allowed = new Set(p.spec.files ?? []);
     for (const path of allowed)
       if (!fileMap.has(path) && path !== entrypoint)
         error('FILE_MISSING', `Declared package file is missing: ${path}`, path, 'package');
+
     function checkFile(source: unknown, path: string) {
       const file = record(source).file;
       if (typeof file !== 'string') return;
+
       if (!allowed.has(file))
         error(
           'FILE_UNDECLARED',
@@ -231,6 +242,7 @@ export function validatePipeline(
     }
     for (const [name, schema] of Object.entries(p.spec.schemas ?? {}))
       checkFile(schema, `/spec/schemas/${name}`);
+
     function graphImports(graph: Graph, graphPath: string) {
       for (const [id, node] of Object.entries(graph.nodes)) {
         const at = `${graphPath}/nodes/${id}`;
@@ -247,14 +259,17 @@ export function validatePipeline(
             error('IMPORT_CYCLE', `Recursive pipeline import: ${path}`, path, 'package');
             continue;
           }
+
           const file = fileMap.get(path);
           if (!file || loaded.has(path)) continue;
+
           try {
             const child = parse(decodeText(file.content), diagnostics, path);
             if (!structural.validate(child).valid || record(child).kind !== 'Pipeline') {
               error('IMPORT_INVALID', 'Imported file must be a valid Pipeline.', path, 'package');
               continue;
             }
+
             imported.set(path, child as Pipeline);
             active.add(path);
             loadImports(child as Pipeline, depth + 1);
@@ -274,6 +289,7 @@ export function validatePipeline(
     graphImports(p.spec, '/spec');
   }
   loadImports(pipeline);
+
   function check(p: Pipeline) {
     const schemas = new Map<string, unknown>();
     for (const [key, value] of Object.entries(p.spec.schemas ?? {})) {
@@ -298,11 +314,13 @@ export function validatePipeline(
           }
       } else schemas.set(key, value);
     }
+
     function schemaOf(port: Port, path: string) {
       if (port.schemaRef && !schemas.has(port.schemaRef))
         error('REFERENCE_UNRESOLVED', `Unknown schema: ${port.schemaRef}`, path);
       return port.schemaRef ? schemas.get(port.schemaRef) : port.schema;
     }
+
     function checkPort(port: Port, path: string) {
       const schema = schemaOf(port, path);
       if (schema !== undefined)
@@ -314,14 +332,17 @@ export function validatePipeline(
           error('SCHEMA_INVALID', `Data schema cannot be compiled: ${String(e)}`, path);
         }
     }
+
     function checkGraph(graph: Graph, path: string, depth = 0) {
       if (depth > 32) {
         error('GRAPH_DEPTH', 'Graphs exceed 32 levels.', path);
         return;
       }
+
       for (const id of graphOrder(graph).cycle)
         error('GRAPH_CYCLE', `Dependency cycle includes ${id}.`, `${path}/nodes/${id}`);
       const inputNames = new Set(Object.keys(graph.inputs ?? {}));
+
       function refs(
         refs: string[],
         args: Set<string>,
@@ -480,34 +501,40 @@ export function validatePipeline(
       'Run admission checks on the connected engine to verify resources, permissions and inputs.',
     path: '/',
   });
+
   return { pipeline, diagnostics };
 }
 
 export function validateResponse(pipeline: Pipeline, nodeId: string, value: unknown): string[] {
   const node = pipeline.spec.nodes[nodeId];
   if (node?.type !== 'human') return ['Human request node does not exist.'];
+
   const ports = node.outputs ?? {};
   const object = record(value);
   const errors: string[] = [];
   if (!value || typeof value !== 'object' || Array.isArray(value))
     return ['Response must be a JSON object keyed by output port.'];
+
   for (const key of Object.keys(object)) if (!(key in ports)) errors.push(`Unknown output: ${key}`);
   for (const [key, port] of Object.entries(ports)) {
     if (!(key in object)) {
       if (port.required !== false) errors.push(`Missing required output: ${key}`);
       continue;
     }
+
     try {
       const schema = port.schemaRef ? pipeline.spec.schemas?.[port.schemaRef] : port.schema;
       if (schema === undefined || typeof record(schema).file === 'string') {
         errors.push(`Schema for ${key} requires engine resolution.`);
         continue;
       }
+
       const result = dataValidator(schema).validate(object[key]);
       if (!result.valid) errors.push(`${key}: ${result.errors.map((e) => e.error).join(', ')}`);
     } catch {
       errors.push(`Invalid schema for ${key}.`);
     }
   }
+
   return errors;
 }

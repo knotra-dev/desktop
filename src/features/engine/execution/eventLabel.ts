@@ -18,5 +18,6 @@ export function eventLabel(event: EngineEvent, t: ReturnType<typeof useI18n>['t'
         ? 'observe.outputsVerified'
         : 'observe.outputValidationFailed',
     );
+
   return event.message || event.type;
 }

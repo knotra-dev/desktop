@@ -14,6 +14,7 @@ describe('desktop packages on the engine wire', () => {
     expect(unbase64(pack.files[0].content)).toEqual(bytes);
     expect(parsePipeline(decoded)?.metadata.name).toBe('local-welcome');
   });
+
   it('publishes current entrypoint bytes and preserves declared binary files', () => {
     const pipeline = structuredClone(
       parsePipeline(examples.find((example) => example.id === 'local')!.source)!,
@@ -49,6 +50,7 @@ describe('desktop packages on the engine wire', () => {
         { path: 'nested.bin', content: 'AP8=' },
       ],
     });
+
     expect(pack.files.map((file) => file.path)).toEqual([
       'pipeline.yaml',
       'children/writer.yaml',
@@ -72,5 +74,6 @@ it('treats a declared YAML file as data unless a node imports it', () => {
       { path: 'private.txt', content: base64(textBytes('not declared by an imported pipeline')) },
     ],
   });
+
   expect(pack.files.map((file) => file.path)).toEqual(['pipeline.yaml', 'notes.yaml']);
 });

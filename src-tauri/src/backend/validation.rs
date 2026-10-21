@@ -13,6 +13,7 @@ pub(super) fn check_read_shape(call: &Call, value: &Value) -> Result<()> {
         .expect("bundled desktop contract is valid JSON");
         spec["components"]["schemas"].clone()
     });
+
     let model = match call {
         Call::Info => Some(("Info", value)),
         Call::Run { .. } => Some(("Run", &value["run"])),
@@ -76,6 +77,7 @@ pub(super) fn check_read_shape(call: &Call, value: &Value) -> Result<()> {
             "Engine returned an incompatible read model. The last valid cache is preserved.",
         ));
     }
+
     let valid_cursor = |run: &Value| {
         run.get("instancesNextCursor")
             .is_none_or(|cursor| cursor.as_str().is_some_and(|cursor| !cursor.is_empty()))
@@ -105,6 +107,7 @@ fn read_shape(schema: &Value, value: &Value, schemas: &Value) -> bool {
             .and_then(|name| schemas.get(name))
             .is_some_and(|target| read_shape(target, value, schemas));
     }
+
     let has_type = |kind: &str| match kind {
         "object" => value.is_object(),
         "array" => value.is_array(),
@@ -141,6 +144,7 @@ fn read_shape(schema: &Value, value: &Value, schemas: &Value) -> bool {
     {
         return false;
     }
+
     if let Some(properties) = value.as_object() {
         for (key, item) in properties {
             if let Some(property) = schema["properties"].get(key) {
@@ -154,6 +158,7 @@ fn read_shape(schema: &Value, value: &Value, schemas: &Value) -> bool {
             }
         }
     }
+
     if let Some(items) = value.as_array() {
         if schema
             .get("items")
@@ -168,6 +173,7 @@ fn read_shape(schema: &Value, value: &Value, schemas: &Value) -> bool {
             return false;
         }
     }
+
     if let Some(text) = value.as_str() {
         if schema["minLength"]
             .as_u64()
@@ -187,6 +193,7 @@ fn read_shape(schema: &Value, value: &Value, schemas: &Value) -> bool {
             return false;
         }
     }
+
     if let Some(number) = value.as_f64() {
         if schema["minimum"].as_f64().is_some_and(|min| number < min)
             || schema["maximum"].as_f64().is_some_and(|max| number > max)

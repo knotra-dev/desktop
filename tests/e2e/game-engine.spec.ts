@@ -6,11 +6,14 @@ import { record } from '../../src/lib/types';
 import { addStarterPipeline } from './authoring';
 
 const endpoint = process.env.KNOTRA_E2E_ENDPOINT?.replace(/\/$/, '');
+
 test.skip(
   !endpoint,
   'Set KNOTRA_E2E_ENDPOINT to a real engine with the local Qwen and Node profile.',
 );
+
 test.setTimeout(600_000);
+
 test.use({ locale: 'en-US' });
 
 async function navigate(page: Page, name: string) {
@@ -40,6 +43,7 @@ test('engine code-test loop builds an independently verified game that plays fro
     await page.getByRole('combobox', { name: 'Engine profile' }).selectOption('local');
     await page.getByRole('button', { name: 'Check with engine' }).click();
     await expect(page.getByRole('dialog')).toContainText('Engine admission checks passed');
+
     const started = page.waitForResponse(
       (response) =>
         response.url().split('?')[0] === `${endpoint}/v1/runs` &&
@@ -60,6 +64,7 @@ test('engine code-test loop builds an independently verified game that plays fro
         { timeout: 540_000, intervals: [1000, 2000, 5000] },
       )
       .toMatch(/^(succeeded|failed|cancelled)$/);
+
     const { run }: { run: EngineRun } = await (
       await page.request.get(`${endpoint}/v1/runs/${runId}`)
     ).json();
@@ -69,11 +74,13 @@ test('engine code-test loop builds an independently verified game that plays fro
     });
     expect(run.status).toBe('succeeded');
     await expect(page.locator('.page-heading .status')).toHaveText('Completed');
+
     const loop = run.instances.find((instance) => instance.nodeId === 'build')!;
     const verifier = run.instances.find((instance) => instance.nodeId === 'verify')!;
     expect(loop?.nodeType).toBe('loop');
     expect(run.outputs.iterations).toBeGreaterThanOrEqual(1);
     expect(run.outputs.iterations).toBeLessThanOrEqual(4);
+
     const generations = run.instances.filter(
       (instance) => instance.parentInstanceId === loop.id && instance.nodeId === 'generate',
     );
@@ -104,13 +111,17 @@ test('engine code-test loop builds an independently verified game that plays fro
         .filter((instance) => instance.nodeId !== 'seed')
         .every((instance) => instance.status === 'succeeded'),
     ).toBe(true);
+
     const artifacts = new Map(run.artifacts.map((artifact) => [artifact.name, artifact]));
     const finalSource = record(verifier.inputs?.artifacts.source);
     expect(finalSource.id).toEqual(expect.any(String));
+
     async function bytes(artifact: EngineArtifact) {
       expect(artifact).toBeDefined();
+
       const response = await page.request.get(`${endpoint}/v1/artifacts/${artifact.id}/content`);
       expect(response.ok()).toBe(true);
+
       const content = await response.body();
       expect(content.length).toBe(artifact.size);
       expect(createHash('sha256').update(content).digest('hex')).toBe(artifact.sha256);
@@ -127,6 +138,7 @@ test('engine code-test loop builds an independently verified game that plays fro
     expect(report.positions).toBeGreaterThan(100);
     expect(report.sourceSha256).toBe(createHash('sha256').update(source).digest('hex'));
     expect(html.toString('utf8')).not.toContain('__GAME_BASE64__');
+
     const events: EngineEvent[] = [];
     let cursor: string | null = null;
     do {
@@ -134,6 +146,7 @@ test('engine code-test loop builds an independently verified game that plays fro
       if (cursor) query.set('cursor', cursor);
       const response = await page.request.get(`${endpoint}/v1/runs/${runId}/history?${query}`);
       expect(response.ok()).toBe(true);
+
       const history = await response.json();
       events.push(...history.items);
       cursor = history.nextCursor;
@@ -158,6 +171,7 @@ test('engine code-test loop builds an independently verified game that plays fro
     await page.getByRole('textbox', { name: 'Search engine artifacts' }).fill(artifact.id);
     await page.locator('.artifact-card').click();
     await expect(page.locator('.artifact-text')).toContainText('<!doctype html>');
+
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Export', exact: true }).click();
     const exported = await download;

@@ -24,6 +24,7 @@ export { EngineError, engineError } from './error';
 let connection: { url: string; token?: string; key: string } | undefined;
 let sessionRevision = 0;
 let browserWrites: Promise<void> = Promise.resolve();
+
 const stable = (value: unknown): string =>
   JSON.stringify(value, (_, next) =>
     next && typeof next === 'object' && !Array.isArray(next)
@@ -34,12 +35,14 @@ const stable = (value: unknown): string =>
         )
       : next,
   );
+
 const watches = new Set<AbortController>();
 // biome-ignore lint/suspicious/noControlCharactersInRegex: Credentials and protocol identifiers must reject ASCII control bytes.
 const CONTROL_CHARACTERS = /[\x00-\x1f\x7f]/;
 
 function cache(): EngineCache {
   if (!connection) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
+
   try {
     return JSON.parse(localStorage.getItem(connection.key) ?? '{"cache":{},"pending":[]}');
   } catch {
@@ -49,6 +52,7 @@ function cache(): EngineCache {
 
 function writeCache(value: EngineCache) {
   if (!connection) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
+
   localStorage.setItem(connection.key, JSON.stringify(value));
 }
 
@@ -62,6 +66,7 @@ export function parseEngineJSON(text: string): unknown {
     return value;
   } catch (error) {
     if (error instanceof EngineError) throw error;
+
     throw new EngineError('protocol', 'Engine returned invalid JSON.');
   }
 }
@@ -72,6 +77,7 @@ function checkSafeNumbers(value: unknown, message: string): void {
     (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)))
   )
     throw new EngineError('precision', message);
+
   if (value && typeof value === 'object')
     for (const item of Object.values(value)) checkSafeNumbers(item, message);
 }
@@ -97,6 +103,7 @@ export function engineEndpoint(url: string, token?: string) {
     throw new EngineError('input', 'Remote engines require HTTPS and an access token.');
   if (token && (token.length > 8192 || CONTROL_CHARACTERS.test(token)))
     throw new EngineError('input', 'Invalid access token.');
+
   return parsed.toString().replace(/\/$/, '');
 }
 
@@ -113,26 +120,32 @@ function url(path: string[], cursor?: string | null, instanceId?: string) {
     )
   )
     throw new EngineError('input', 'Invalid API identifier.');
+
   const result = new URL(`${connection.url}/v1/${path.map(encodeURIComponent).join('/')}`);
   if (cursor) result.searchParams.set('cursor', cursor);
   if (instanceId) result.searchParams.set('instanceId', instanceId);
+
   return result;
 }
 
 async function readLimited(response: Response, max: number): Promise<Uint8Array> {
   if (Number(response.headers.get('content-length')) > max)
     throw new EngineError('limit', 'Engine response exceeds the client size limit.');
+
   const reader = response.body?.getReader();
   if (!reader) return new Uint8Array();
+
   let size = 0;
   const chunks: Uint8Array[] = [];
   try {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
+
       size += value.length;
       if (size > max)
         throw new EngineError('limit', 'Engine response exceeds the client size limit.');
+
       chunks.push(value);
     }
   } finally {
@@ -144,6 +157,7 @@ async function readLimited(response: Response, max: number): Promise<Uint8Array>
     result.set(chunk, offset);
     offset += chunk.length;
   }
+
   return result;
 }
 
@@ -158,9 +172,11 @@ async function jsonRequest(
   if (connection?.token) headers.Authorization = `Bearer ${connection.token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (operationId) headers['Idempotency-Key'] = operationId;
+
   const target = url(path, cursor, instanceId);
   if ((path[0] === 'runs' && path.length <= 2) || (path[0] === 'requests' && path.length === 1))
     target.searchParams.set('preview', 'javascript');
+
   const response = await fetch(target, {
     method: body === undefined ? 'GET' : 'POST',
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -169,6 +185,7 @@ async function jsonRequest(
     signal: AbortSignal.timeout(30_000),
     credentials: 'omit',
   });
+
   let value: unknown;
   try {
     value = parseEngineJSON(
@@ -178,10 +195,12 @@ async function jsonRequest(
     );
   } catch (e) {
     if (e instanceof EngineError) throw e;
+
     throw new EngineError('protocol', 'Engine returned invalid JSON.');
   }
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new EngineError('protocol', 'Expected an engine response object.');
+
   const result = record(value);
   if (!response.ok)
     throw new EngineError(
@@ -190,6 +209,7 @@ async function jsonRequest(
       response.status,
       Array.isArray(result.diagnostics) ? result.diagnostics : [],
     );
+
   return result;
 }
 
@@ -204,6 +224,7 @@ export async function connectEngine(address: string, token?: string): Promise<En
       connection = { url: addressUrl, token, key: '' };
       info = await jsonRequest(['info']);
     }
+
     const candidate = record(info);
     if (
       candidate.protocol !== PROTOCOL ||
@@ -214,12 +235,14 @@ export async function connectEngine(address: string, token?: string): Promise<En
       throw new EngineError('incompatible', `Engine does not implement the ${PROTOCOL} contract.`);
     if (revision !== sessionRevision)
       throw new EngineError('disconnected', 'Connection changed while connecting.');
+
     assertEngineModel<EngineInfo>('Info', info);
     connection = {
       url: addressUrl,
       token,
       key: `knotra.engine.v1:${JSON.stringify([addressUrl, info.engineId, info.principalId])}`,
     };
+
     return info;
   } catch (error) {
     if (revision === sessionRevision) connection = undefined;
@@ -382,6 +405,7 @@ function checkReadResponse(call: EngineCall, response: unknown) {
         (value.nextCursor !== null && value.nextCursor === call.cursor)
       )
         throw new EngineError('protocol', 'Invalid instance page.');
+
       for (const item of value.items) assertEngineModel('Instance', item);
       break;
     case 'history':
@@ -401,6 +425,7 @@ function checkReadResponse(call: EngineCall, response: unknown) {
     case 'resources': {
       if (!Array.isArray(value.items))
         throw new EngineError('protocol', 'Engine returned an incompatible catalog.');
+
       const model =
         call.op === 'definitions' ? 'Definition' : call.op === 'profiles' ? 'Profile' : 'Resource';
       for (const item of value.items) assertEngineModel(model, item);
@@ -411,6 +436,7 @@ function checkReadResponse(call: EngineCall, response: unknown) {
 
 export async function engineCall<T>(call: EngineCall): Promise<T> {
   if (!connection) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
+
   const revision = sessionRevision;
   if (desktop) {
     try {
@@ -420,6 +446,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
           'disconnected',
           'Connection changed; recover commands on the original engine.',
         );
+
       checkReadResponse(call, result);
       return result;
     } catch (e) {
@@ -432,6 +459,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
     const task = browserWrites.then(async () => {
       if (revision !== sessionRevision)
         throw new EngineError('disconnected', 'Connection changed.');
+
       const data = cache();
       const old = data.pending.find((item) => item.id === operationId);
       const completed = data.cache[`operation:${operationId}`] as
@@ -454,6 +482,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
           completed.rejection.diagnostics,
         );
       if (completed) return completed.response as T;
+
       if (!old) {
         checkSafeNumbers(
           call,
@@ -496,18 +525,22 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
           'disconnected',
           'Connection changed; recover the saved command on the original engine.',
         );
+
       const current = cache();
       current.pending = current.pending.filter((item) => item.id !== operationId);
       current.cache[`operation:${operationId}`] = { request: call, response };
       writeCache(current);
+
       return response as T;
     });
     browserWrites = task.then(
       () => {},
       () => {},
     );
+
     return task;
   }
+
   checkSafeNumbers(
     call,
     'The app cannot send numbers outside JavaScript’s safe range. Use the CLI for exact values.',
@@ -515,6 +548,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
   const { path, body, cursor, instanceId } = route(call);
   const value = await jsonRequest(path, body, undefined, cursor, instanceId);
   if (revision !== sessionRevision) throw new EngineError('disconnected', 'Connection changed.');
+
   checkReceipt(call, value);
   checkReadResponse(call, value);
   if (call.op !== 'validate' && call.op !== 'history' && call.op !== 'instances') {
@@ -522,6 +556,7 @@ export async function engineCall<T>(call: EngineCall): Promise<T> {
     current.cache[JSON.stringify(call)] = value;
     writeCache(current);
   }
+
   return value as T;
 }
 
@@ -536,12 +571,15 @@ export async function allPages<T>(op: 'runs' | 'requests' | 'artifacts'): Promis
       !(page.nextCursor === null || typeof page.nextCursor === 'string')
     )
       throw new EngineError('protocol', 'Invalid paginated response.');
+
     items.push(...page.items);
     cursor = page.nextCursor;
     if (cursor && (seen.has(cursor) || seen.size >= 1000))
       throw new EngineError('protocol', 'Engine pagination did not finish.');
+
     if (cursor) seen.add(cursor);
   } while (cursor);
+
   return items;
 }
 
@@ -549,6 +587,7 @@ export async function downloadArtifact(
   id: string,
 ): Promise<{ artifact: EngineArtifact; content: string }> {
   if (!connection) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
+
   const revision = sessionRevision;
   if (desktop) {
     try {
@@ -560,6 +599,7 @@ export async function downloadArtifact(
       );
       if (revision !== sessionRevision)
         throw new EngineError('disconnected', 'Connection changed while downloading the artifact.');
+
       return result;
     } catch (e) {
       throw engineError(e);
@@ -571,6 +611,7 @@ export async function downloadArtifact(
   });
   if (!Number.isSafeInteger(artifact.size) || artifact.size < 0 || artifact.size > 64 * 1024 * 1024)
     throw new EngineError('limit', 'Invalid artifact size or artifact exceeds 64 MiB.');
+
   const response = await fetch(url(['artifacts', id, 'content']), {
     headers: connection?.token ? { Authorization: `Bearer ${connection.token}` } : {},
     redirect: 'error',
@@ -579,11 +620,13 @@ export async function downloadArtifact(
   });
   if (!response.ok)
     throw new EngineError('engine', 'Artifact bytes are unavailable.', response.status);
+
   const bytes = await readLimited(response, 64 * 1024 * 1024);
   if (bytes.length !== artifact.size || (await sha256(bytes)) !== artifact.sha256)
     throw new EngineError('integrity', 'Artifact size or SHA-256 does not match engine metadata.');
   if (revision !== sessionRevision)
     throw new EngineError('disconnected', 'Connection changed while downloading the artifact.');
+
   return { artifact, content: base64(bytes) };
 }
 
@@ -593,6 +636,7 @@ export async function exportEngineArtifact(id: string): Promise<void> {
     await invoke('export_file', { name: artifact.name, content });
     return;
   }
+
   const bytes = Uint8Array.from(atob(content), (char) => char.charCodeAt(0));
   const blob = new Blob([bytes], { type: artifact.mediaType });
   const href = URL.createObjectURL(blob);
@@ -605,11 +649,14 @@ export async function exportEngineArtifact(id: string): Promise<void> {
 
 export async function storedEvents(runId: string): Promise<EngineEvent[]> {
   if (desktop) return invoke('engine_events', { runId });
+
   const revision = sessionRevision;
   const session = connection?.key;
   if (!session) return [];
+
   const state = await browserEventState(session, runId);
   if (revision !== sessionRevision) throw new EngineError('disconnected', 'Connection changed.');
+
   return state.events;
 }
 
@@ -628,8 +675,10 @@ export async function watchRun(
       if (revision === sessionRevision) void invoke('engine_unwatch', { runId }).catch(() => {});
     };
   }
+
   const session = connection?.key;
   if (!session) throw new EngineError('disconnected', 'Connect to an engine in Settings first.');
+
   const controller = new AbortController();
   watches.add(controller);
   void (async () => {
@@ -638,6 +687,7 @@ export async function watchRun(
       try {
         const { cursor } = await browserEventState(session, runId);
         if (controller.signal.aborted || revision !== sessionRevision) break;
+
         const headers: Record<string, string> = { Accept: 'text/event-stream' };
         if (cursor) headers['Last-Event-ID'] = cursor;
         if (connection?.token) headers.Authorization = `Bearer ${connection.token}`;
@@ -660,6 +710,7 @@ export async function watchRun(
           !response.body
         )
           throw new EngineError('protocol', 'Engine did not return an event stream.');
+
         receive({ type: 'connection', status: 'connected' });
         delay = 1000;
         const reader = response.body.getReader();
@@ -670,13 +721,16 @@ export async function watchRun(
             heartbeat = setTimeout(() => requestAbort.abort(), 45_000);
             const { value, done } = await reader.read().finally(() => clearTimeout(heartbeat));
             if (done || revision !== sessionRevision || controller.signal.aborted) break;
+
             for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
               const event = parseEngineJSON(frame.data) as EngineEvent;
               assertEngineModel('Event', event);
               if (!event || event.runId !== runId || event.id !== frame.id)
                 throw new EngineError('protocol', 'Event identity does not match its stream.');
+
               const accepted = await acceptBrowserEvent(session, event);
               if (controller.signal.aborted || revision !== sessionRevision) break;
+
               if (accepted) {
                 receive({ type: 'event', event });
               }
@@ -708,6 +762,7 @@ export async function watchRun(
       }
     }
   })();
+
   return () => {
     controller.abort();
     watches.delete(controller);
@@ -720,6 +775,7 @@ export class EventParser {
   private id = '';
   private data: string[] = [];
   private size = 0;
+
   push(text: string): { id: string; data: string }[] {
     const frames: { id: string; data: string }[] = [];
     for (const char of text) {
@@ -727,12 +783,14 @@ export class EventParser {
         this.cr = false;
         continue;
       }
+
       this.cr = char === '\r';
       if (char === '\r' || char === '\n') {
         if (!this.line) {
           if (this.data.length) {
             if (!this.id)
               throw new EngineError('protocol', 'Engine event is missing a durable ID.');
+
             frames.push({ id: this.id, data: this.data.join('\n') });
           }
           this.id = '';
@@ -745,6 +803,7 @@ export class EventParser {
           if (field === 'id') {
             if (value.length > 256 || CONTROL_CHARACTERS.test(value))
               throw new EngineError('protocol', 'Invalid event ID.');
+
             this.id = value;
           }
           if (field === 'data') this.data.push(value);
@@ -755,6 +814,7 @@ export class EventParser {
       this.size += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
       if (this.size > 256 * 1024) throw new EngineError('limit', 'Engine event exceeds 256 KiB.');
     }
+
     return frames;
   }
 }

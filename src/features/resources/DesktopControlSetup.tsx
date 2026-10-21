@@ -17,8 +17,10 @@ export default function DesktopControlSetup() {
   const [status, setStatus] = useState<ControlStatus>();
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (!desktop) return;
+
     let active = true;
     void invoke<ControlStatus>('desktop_control_status')
       .then((value) => {
@@ -34,8 +36,11 @@ export default function DesktopControlSetup() {
       active = false;
     };
   }, [t]);
+
   if (!desktop) return null;
+
   const config = status?.config ? JSON.stringify(status.config, null, 2) : '';
+
   return (
     <section
       className="settings-card desktop-control max-w-250 rounded-[20px] border border-solid border-line bg-surface mb-6 p-7.5"

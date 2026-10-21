@@ -51,6 +51,7 @@ describe('durable event framing', () => {
       frames.push(...parser.push(char));
     expect(frames).toEqual([{ id: 'e1', data: '{"message":"Привет",\n"n":1}' }]);
   });
+
   it('requires durable IDs and rejects oversized/injectable messages', () => {
     expect(() => new EventParser().push('data: {}\n\n')).toThrow('durable ID');
     expect(() => new EventParser().push('id: bad\0id\ndata: {}\n\n')).toThrow('Invalid event ID');
@@ -93,9 +94,11 @@ it('loads scoped history without advancing the live cursor or caching full pages
           version: '1',
           capabilities: ['history'],
         });
+
       expect(target.pathname).toBe('/prefix/v1/runs/run%2F1/history');
       expect(target.searchParams.get('cursor')).toBe('cursor/+');
       expect(target.searchParams.get('instanceId')).toBe('node/1');
+
       return Response.json({
         items: [
           {
@@ -120,6 +123,7 @@ it('loads scoped history without advancing the live cursor or caching full pages
       instanceId: 'node/1',
       cursor: 'cursor/+',
     };
+
     expect(await engineCall(call)).toMatchObject({ items: [{ id: 'event1' }] });
     expect(await engineCache()).toEqual(before);
     wrongInstance = true;
@@ -190,11 +194,13 @@ it('requests safe previews for run refresh, admission receipts and human review'
           version: '1',
           capabilities: [],
         });
+
       expect(target.searchParams.get('preview')).toBe('javascript');
       if (target.pathname === '/v1/requests')
         return Response.json({ items: [request], nextCursor: null });
       if (target.pathname === '/v1/runs' && init.method === 'GET')
         return Response.json({ items: [run], nextCursor: null });
+
       return Response.json({ run }, { status: init.method === 'POST' ? 201 : 200 });
     }),
   );
@@ -209,6 +215,7 @@ it('requests safe previews for run refresh, admission receipts and human review'
       items: [request],
       nextCursor: null,
     });
+
     const start = {
       op: 'start' as const,
       definitionId: 'd1',
@@ -217,9 +224,11 @@ it('requests safe previews for run refresh, admission receipts and human review'
       artifacts: {},
       operationId: 'start-int64',
     };
+
     expect(await engineCall(start)).toEqual({ run });
     expect(await engineCall(start)).toEqual({ run });
     expect((await engineCache()).pending).toEqual([]);
+
     const beforeUnsafe = await engineCache();
     await expect(
       engineCall({ ...start, operationId: 'unsafe-start', inputs: { exact: 2 ** 53 } }),
@@ -253,7 +262,9 @@ it('recovers retained unsafe commands while rejecting new unsafe commands', asyn
           version: '1',
           capabilities: [],
         });
+
       expect(init.body).toContain('"exact":9007199254740992');
+
       const headers = init.headers as Record<string, string>;
       if (target.pathname === '/v1/runs') {
         expect(headers['Idempotency-Key']).toBe('retained-start');
@@ -263,8 +274,10 @@ it('recovers retained unsafe commands while rejecting new unsafe commands', asyn
           { status: 201 },
         );
       }
+
       expect(target.pathname).toBe('/v1/requests/h1/response');
       expect(headers['Idempotency-Key']).toBe('retained-response');
+
       return Response.json({ accepted: true, requestId: 'h1' });
     }),
   );
@@ -303,6 +316,7 @@ it('recovers retained unsafe commands while rejecting new unsafe commands', asyn
     await expect(engineCall({ ...start, inputs: { exact: 2 ** 53 + 2 } })).rejects.toMatchObject({
       code: 'conflict',
     });
+
     const before = await engineCache();
     await expect(engineCall({ ...start, operationId: 'new-unsafe' })).rejects.toMatchObject({
       code: 'precision',
@@ -378,6 +392,7 @@ it('does not overwrite the last valid cached page with a malformed read model', 
     await connectEngine('http://localhost:8080');
     const call = { op: 'runs' as const, cursor: null };
     expect(await engineCall(call)).toEqual(good);
+
     const before = await engineCache();
     await expect(engineCall(call)).rejects.toMatchObject({ code: 'protocol' });
     expect(await engineCache()).toEqual(before);

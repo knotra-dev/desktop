@@ -43,6 +43,7 @@ const source = (graph: Graph) =>
     metadata: { name: 'test' },
     spec: graph,
   });
+
 function run(instances: EngineInstance[] = []): EngineRun {
   return {
     id: 'run',
@@ -66,9 +67,11 @@ function run(instances: EngineInstance[] = []): EngineRun {
     availableActions: [],
   };
 }
+
 function instance(id: string, nodeId: string, extra: Partial<EngineInstance> = {}): EngineInstance {
   return { id, nodeId, status: 'running', scope: 'pipeline.yaml', ...extra };
 }
+
 function event(id: string, extra: Partial<EngineEvent> = {}): EngineEvent {
   return {
     id,
@@ -103,6 +106,7 @@ describe('readable run timeline', () => {
       event('1'),
       event('2', { instanceId: 'batch-review' }),
     ]);
+
     expect(rows.map((row) => row.node?.description)).toEqual([
       'Root review',
       'Batch review',
@@ -133,6 +137,7 @@ describe('readable run timeline', () => {
         data: { nodeId: 'batches', scope: 'pipeline.yaml', graphPath: '/nodes/batches' },
       }),
     ]);
+
     expect(rows[2].instance).toMatchObject({
       id: 'new-review',
       nodeId: 'review',
@@ -150,6 +155,7 @@ describe('readable run timeline', () => {
       ]),
       [event('1')],
     );
+
     expect(rows[0].node).toBeUndefined();
     expect(rows[0].instance?.nodeId).toBe('review');
     expect(rows[0].context).toEqual([{ nodeId: 'batches', iterationIndex: 1 }]);
@@ -176,6 +182,7 @@ describe('readable run timeline', () => {
         }),
       ],
     );
+
     expect(rows.map((row) => [row.instance?.id, row.activity.text])).toEqual([
       ['first', 'First response'],
       ['second', 'Second response'],
@@ -193,6 +200,7 @@ describe('readable run timeline', () => {
         event('3'),
       ],
     );
+
     expect(rows.map((row) => row.attempt)).toEqual([1, 2, undefined]);
   });
 
@@ -203,6 +211,7 @@ describe('readable run timeline', () => {
       event('3', { instanceId: 'one', attemptId: 'retry-attempt' }),
       event('4', { instanceId: 'two', attemptId: 'retry-attempt' }),
     ]);
+
     expect(rows.map((row) => row.attempt)).toEqual([1, 1, 2, 1]);
   });
 
@@ -214,6 +223,7 @@ describe('readable run timeline', () => {
       custom,
       event('2', { runId: 'other-run', message: 'Foreign event' }),
     ]);
+
     expect(rows.map((row) => row.activity.events[0].message)).toEqual([
       'pending',
       'A useful custom event.',
@@ -234,6 +244,7 @@ describe('readable run timeline', () => {
       ]),
       [event('1', { instanceId: 'one' }), event('2', { instanceId: 'orphan' })],
     );
+
     expect(rows[0].context).toEqual([{ nodeId: 'batches', iterationIndex: undefined }]);
     expect(rows[1].context).toEqual([{ nodeId: 'batches', iterationIndex: 0 }]);
     expect(rows[1].node?.description).toBe('Batch review');

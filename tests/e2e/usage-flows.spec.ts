@@ -75,6 +75,7 @@ async function fits(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+
   const controlsFit = await page.locator('.inspector-content').evaluateAll((panels) =>
     panels.every((panel) => {
       const bounds = panel.getBoundingClientRect();
@@ -86,6 +87,7 @@ async function fits(page: Page) {
         });
     }),
   );
+
   expect(controlsFit).toBe(true);
 }
 
@@ -259,6 +261,7 @@ for (const title of templates)
       .evaluateAll((selects) =>
         selects.map((select) => (select as HTMLSelectElement).selectedIndex),
       );
+
     expect(selected.every((index) => index >= 0)).toBe(true);
     await fits(page);
     await page.getByRole('tab', { name: 'Code', exact: true }).click();
@@ -427,6 +430,7 @@ test('files, prompt selection and malformed YAML recover through the editor', as
   await expect(
     page.getByText('4 B · Binary file preserved with the package', { exact: true }),
   ).toBeVisible();
+
   const exported = page.waitForEvent('download');
   await pipelineAction(page, 'Export');
   const binary = unzipSync(new Uint8Array(readFileSync((await (await exported).path())!)));
@@ -443,6 +447,7 @@ test('files, prompt selection and malformed YAML recover through the editor', as
   await expect
     .poll(async () => (await pipeline(page)).spec.nodes.research.agent.prompt.file)
     .toBe('instructions.txt');
+
   const valid = (await current(page)).source;
   await page.getByRole('tab', { name: 'Code', exact: true }).click();
   await page.getByRole('textbox', { name: 'Pipeline YAML', exact: true }).fill('spec: [');
@@ -541,6 +546,7 @@ test('settings, search, shortcuts and modal dismissal work with persisted prefer
   await expect(page.getByRole('textbox', { name: 'Engine base URL', exact: true })).toHaveValue(
     'http://127.0.0.1:9000',
   );
+
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup', exact: true }).click();
   const backup = JSON.parse(readFileSync((await (await download).path())!, 'utf8'));
@@ -610,6 +616,7 @@ test('ZIP import selects the only Pipeline after profile and schema YAML files',
   await expect
     .poll(async () => (await current(page)).files.map((file: { path: string }) => file.path).sort())
     .toEqual(['prompt.txt', 'reply.schema.yaml']);
+
   const downloaded = page.waitForEvent('download');
   await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await downloaded).path())!)));
@@ -646,6 +653,7 @@ test('ZIP import preserves an entrypoint BOM and rejects duplicate paths before 
     buffer: Buffer.from(zipSync({ 'PIPELINE.YAML': pipeline })),
   });
   await expect(page.getByRole('heading', { name: 'basic-human', exact: true })).toBeVisible();
+
   const downloaded = page.waitForEvent('download');
   await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await downloaded).path())!)));
@@ -658,6 +666,7 @@ test('ZIP import preserves an entrypoint BOM and rejects duplicate paths before 
       while (true) {
         position = archive.indexOf('pipeline.YAML', position);
         if (position < 0) break;
+
         archive.write('pipeline.yaml', position);
         position += 'pipeline.yaml'.length;
       }

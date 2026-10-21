@@ -31,6 +31,7 @@ const catalog: Resource[] = [
 ];
 let resources = catalog;
 let profiles: Profile[] = [];
+
 function json(response: ServerResponse, value: unknown) {
   response.writeHead(200, {
     'Content-Type': 'application/json',
@@ -38,6 +39,7 @@ function json(response: ServerResponse, value: unknown) {
   });
   response.end(JSON.stringify(value));
 }
+
 test.beforeEach(async () => {
   resources = catalog;
   profiles = [{ id: 'local', title: 'Local profile', revision: 'fixture' }];
@@ -51,6 +53,7 @@ test.beforeEach(async () => {
       response.end();
       return;
     }
+
     const path = new URL(request.url!, endpoint).pathname;
     if (path === '/v1/info')
       return json(response, {
@@ -61,15 +64,18 @@ test.beforeEach(async () => {
         capabilities: ['resources', 'profiles'],
       });
     if (path === '/v1/profiles') return json(response, { items: profiles });
+
     return json(response, { items: path === '/v1/resources' ? resources : [], nextCursor: null });
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   endpoint = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
+
 test.afterEach(async () => {
   server.closeAllConnections();
   await new Promise<void>((resolve) => server.close(() => resolve()));
 });
+
 async function openCatalog(
   page: Page,
   locale: 'en' | 'ru' = 'en',
@@ -95,6 +101,7 @@ async function openCatalog(
     .getByRole('button', { name: t['navigation.resources'], exact: true })
     .click();
   await revealCatalog(page);
+
   return t;
 }
 
@@ -165,8 +172,10 @@ async function nativeCatalog(page: Page, mode: 'local' | 'manual') {
             const call = args.call as { op: string };
             if (call.op === 'profiles')
               return { items: [{ id: 'local', title: 'Local profile', revision: 'fixture' }] };
+
             return { items: call.op === 'resources' ? catalog : [], nextCursor: null };
           }
+
           return 1;
         },
       };
@@ -209,6 +218,7 @@ for (const locale of ['en', 'ru'] as const)
         name: t['resources.engineTechnicalDetails'],
         exact: true,
       });
+
       await expect(technical).toHaveAttribute('aria-expanded', 'false');
       await expect(section.locator('pre')).toHaveCount(0);
       await section.scrollIntoViewIfNeeded();
@@ -217,6 +227,7 @@ for (const locale of ['en', 'ru'] as const)
           section.evaluate((element) => {
             const bounds = element.getBoundingClientRect();
             const tabs = document.querySelector('.resource-tabs')!.getBoundingClientRect();
+
             return (
               Math.abs(bounds.left - tabs.left) <= 1 &&
               Math.abs(bounds.right - tabs.right) <= 1 &&

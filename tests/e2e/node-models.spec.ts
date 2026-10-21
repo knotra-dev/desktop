@@ -161,6 +161,7 @@ async function open(
               claudeAvailable: true,
             };
           if (command === 'engine_cache') return { cache: {}, pending: [] };
+
           return 1;
         },
       };
@@ -244,6 +245,7 @@ test('each model block chooses from all saved sources while the engine is stoppe
   await expect(panel.getByRole('combobox', { name: 'Model', exact: true })).toHaveValue(
     'codex/code',
   );
+
   const commands = await page.evaluate(
     () => (window as unknown as { nativeCommands: string[] }).nativeCommands,
   );
@@ -306,6 +308,7 @@ test('a source catalog arriving later never rewrites the saved model selection',
   const model = panel.getByRole('combobox', { name: 'Model', exact: true });
   await expect(model).toBeDisabled();
   await expect(model).toHaveValue('api/fast');
+
   const before = (await activeWorkspace(page)).source;
   await page.evaluate(() => (window as unknown as { releaseSources: () => void }).releaseSources());
   await expect(model).toBeEnabled();
@@ -353,6 +356,7 @@ test('an empty saved catalog offers its provider default and a source refresh ac
   await open(page, { catalog: [{ ...sources[0], models: [] }] });
   const panel = await node(page, 'answer');
   await expect(panel).toContainText('No saved model list for this source.');
+
   const model = panel.getByRole('combobox', { name: 'Model', exact: true });
   await expect(model).toHaveValue('api/fast');
   await expect(panel.locator('input')).toHaveCount(0);

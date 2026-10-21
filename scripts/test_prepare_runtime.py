@@ -31,18 +31,40 @@ class RuntimeTest(unittest.TestCase):
                 builds.append((kwargs["env"]["GOOS"], kwargs["env"]["GOARCH"]))
                 Path(args[args.index("-o") + 1]).write_bytes(b"fixture binary")
 
-            with patch.object(subprocess, "check_output", side_effect=[
-                "openai-compatible codex claude --base-url --no-run --connections-file", "List an HTTP MCP server --json", "--desktop --bridge-file", "a" * 40, b" M model.go\n"
-            ]), patch.object(subprocess, "run", side_effect=build):
-                runtime.prepare(source, output, runtime.target_platform("x86_64-pc-windows-msvc"))
-            self.assertEqual(builds, [("windows", "amd64"), ("linux", "amd64"), ("linux", "arm64")])
+            with patch.object(
+                subprocess,
+                "check_output",
+                side_effect=[
+                    "openai-compatible codex claude --base-url --no-run --connections-file",
+                    "List an HTTP MCP server --json",
+                    "--desktop --bridge-file",
+                    "a" * 40,
+                    b" M model.go\n",
+                ],
+            ), patch.object(subprocess, "run", side_effect=build):
+                runtime.prepare(
+                    source,
+                    output,
+                    runtime.target_platform("x86_64-pc-windows-msvc"),
+                )
+
+            self.assertEqual(
+                builds,
+                [("windows", "amd64"), ("linux", "amd64"), ("linux", "arm64")],
+            )
             manifest = json.loads((output / "runtime.json").read_text())
             self.assertTrue(manifest["dirty"])
             self.assertEqual(manifest["platform"], "windows-amd64")
-            self.assertEqual(set(manifest["sha256"]), {
-                "knotra.exe", "sandbox-helper-linux-amd64", "sandbox-helper-linux-arm64",
-                "LICENSE", "account-clis.json",
-            })
+            self.assertEqual(
+                set(manifest["sha256"]),
+                {
+                    "knotra.exe",
+                    "sandbox-helper-linux-amd64",
+                    "sandbox-helper-linux-arm64",
+                    "LICENSE",
+                    "account-clis.json",
+                },
+            )
             for name, digest in manifest["sha256"].items():
                 self.assertEqual(hashlib.sha256((output / name).read_bytes()).hexdigest(), digest)
 
@@ -66,9 +88,14 @@ class RuntimeTest(unittest.TestCase):
                 output = source / "runtime"
                 output.mkdir()
                 (output / "knotra").write_bytes(b"previous build")
-                with patch.object(subprocess, "check_output", side_effect=[
-                    "openai-compatible codex claude --base-url --no-run --connections-file", response,
-                ]) as check, patch.object(subprocess, "run") as build:
+                with patch.object(
+                    subprocess,
+                    "check_output",
+                    side_effect=[
+                        "openai-compatible codex claude --base-url --no-run --connections-file",
+                        response,
+                    ],
+                ) as check, patch.object(subprocess, "run") as build:
                     with self.assertRaisesRegex(ValueError, "lacks MCP discovery"):
                         runtime.prepare(source, output, ("darwin", "arm64"))
                 self.assertEqual(check.call_args.args[0][-3:], ["mcp", "discover", "--help"])
@@ -83,10 +110,15 @@ class RuntimeTest(unittest.TestCase):
                 output = source / "runtime"
                 output.mkdir()
                 (output / "knotra").write_bytes(b"previous build")
-                with patch.object(subprocess, "check_output", side_effect=[
-                    "openai-compatible codex claude --base-url --no-run --connections-file",
-                    "List an HTTP MCP server --json", response,
-                ]) as check, patch.object(subprocess, "run") as build:
+                with patch.object(
+                    subprocess,
+                    "check_output",
+                    side_effect=[
+                        "openai-compatible codex claude --base-url --no-run --connections-file",
+                        "List an HTTP MCP server --json",
+                        response,
+                    ],
+                ) as check, patch.object(subprocess, "run") as build:
                     with self.assertRaisesRegex(ValueError, "lacks desktop MCP control"):
                         runtime.prepare(source, output, ("darwin", "arm64"))
                 self.assertEqual(check.call_args.args[0][-3:], ["mcp", "serve", "--help"])
@@ -110,11 +142,23 @@ class RuntimeTest(unittest.TestCase):
                     else:
                         Path(args[-1]).write_bytes(b"signed")
 
-                with patch.dict(os.environ, {"APPLE_SIGNING_IDENTITY": identity}), \
-                     patch.object(subprocess, "check_output", side_effect=[
-                         "openai-compatible codex claude --base-url --no-run --connections-file", "List an HTTP MCP server --json", "--desktop --bridge-file", "a" * 40, b""
-                     ]), patch.object(subprocess, "run", side_effect=run):
+                with (
+                    patch.dict(os.environ, {"APPLE_SIGNING_IDENTITY": identity}),
+                    patch.object(
+                        subprocess,
+                        "check_output",
+                        side_effect=[
+                            "openai-compatible codex claude --base-url --no-run --connections-file",
+                            "List an HTTP MCP server --json",
+                            "--desktop --bridge-file",
+                            "a" * 40,
+                            b"",
+                        ],
+                    ),
+                    patch.object(subprocess, "run", side_effect=run),
+                ):
                     runtime.prepare(source, output, ("darwin", "arm64"))
+
                 self.assertEqual(commands[-1][:4], ["codesign", "--force", "--sign", identity])
                 self.assertEqual("--timestamp" in commands[-1], identity != "-")
                 self.assertEqual("--options" in commands[-1], identity != "-")
@@ -123,20 +167,33 @@ class RuntimeTest(unittest.TestCase):
 
     def test_account_downloads_are_pinned_to_official_https_assets(self):
         manifest = json.loads((runtime.ROOT / "src-tauri/account-clis.json").read_text())
-        platforms = {"darwin-arm64", "darwin-amd64", "linux-arm64", "linux-amd64",
-                     "windows-arm64", "windows-amd64"}
+        platforms = {
+            "darwin-arm64",
+            "darwin-amd64",
+            "linux-arm64",
+            "linux-amd64",
+            "windows-arm64",
+            "windows-amd64",
+        }
+
         for provider, release in manifest.items():
             self.assertRegex(release["version"], r"^\d+\.\d+\.\d+$")
             self.assertEqual(set(release["platforms"]), platforms)
             for target, asset in release["platforms"].items():
                 url = urlparse(asset["url"])
                 self.assertEqual(url.scheme, "https")
-                self.assertEqual(url.hostname, "github.com" if provider == "codex" else "downloads.claude.ai")
+                self.assertEqual(
+                    url.hostname,
+                    "github.com" if provider == "codex" else "downloads.claude.ai",
+                )
                 self.assertIn(release["version"], url.path)
                 self.assertRegex(asset["sha256"], r"^[a-f0-9]{64}$")
                 self.assertGreater(asset["size"], 1_000_000)
                 self.assertEqual(Path(asset["executable"]).name, asset["executable"])
-                self.assertEqual(asset["archive"], "raw" if provider == "claude" or target.startswith("windows") else "tar.gz")
+                self.assertEqual(
+                    asset["archive"],
+                    "raw" if provider == "claude" or target.startswith("windows") else "tar.gz",
+                )
 
 
 if __name__ == "__main__":

@@ -132,12 +132,14 @@ test('pipeline actions support keyboard navigation, dismissal and focus restorat
   await page.keyboard.press('Tab');
   await expect(menu).toHaveCount(0);
   await expect(trigger).not.toBeFocused();
+
   const forwardFocus = await focusedControl(page);
   await trigger.click();
   await expect(first).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(menu).toHaveCount(0);
   await expect(trigger).not.toBeFocused();
+
   const reverseFocus = await focusedControl(page);
   await trigger.click();
   const instructions = page.getByRole('textbox', { name: 'Instructions', exact: true });
@@ -195,6 +197,7 @@ test('closing pipeline actions with Escape leaves the interactive tour active', 
   const guide = page.getByRole('region', { name: 'Knotra tour', exact: true });
   await guide.getByRole('button', { name: 'Continue learning pipeline', exact: true }).click();
   await expect(guide).toContainText('2 of 8');
+
   const trigger = page.getByRole('button', { name: 'Pipeline actions', exact: true });
   await trigger.click();
   await expect(page.getByRole('menu').getByRole('menuitem').first()).toBeFocused();
@@ -232,6 +235,7 @@ for (const locale of ['en', 'ru'] as const)
       await expect(
         tabs.getByRole('tab', { name: new RegExp(`^${t['editor.files']} `) }),
       ).toContainText('121');
+
       const fits = await header.evaluate((element) => {
         const bounds = element.closest('.workspace-view')!.getBoundingClientRect();
         const controls = [
@@ -247,6 +251,7 @@ for (const locale of ['en', 'ru'] as const)
         const title = element.querySelector('h1')!.getBoundingClientRect();
         const version = element.querySelector('.heading-version')!.getBoundingClientRect();
         const actions = element.lastElementChild!.getBoundingClientRect();
+
         return {
           page: document.documentElement.scrollWidth <= innerWidth,
           title: title.right <= version.left + 1 && version.right <= actions.left + 1,
@@ -264,6 +269,7 @@ for (const locale of ['en', 'ru'] as const)
           ),
         };
       });
+
       expect(fits).toEqual({ page: true, title: true, controls: true, overlap: false });
       await page.screenshot({ path: testInfo.outputPath(`editor-header-${locale}-${width}.png`) });
       const actions = page.getByRole('button', {
@@ -275,6 +281,7 @@ for (const locale of ['en', 'ru'] as const)
       await expect(
         menu.getByRole('menuitem', { name: t['common.export'], exact: true }),
       ).toBeVisible();
+
       const box = (await menu.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width);

@@ -88,6 +88,7 @@ describe('runnable starter packages', () => {
     first.files[0].content = '';
     expect(second.files[0].content).toBe(template.files[0].content);
     expect(second.files[0].content).not.toBe('');
+
     const pipeline = parsePipeline(second.source)!;
     expect(graphOrder(pipeline.spec).order).toEqual([
       'evidence',

@@ -10,9 +10,11 @@ const catalogs: Record<'en' | 'ru', Record<string, string>> = {
   en: JSON.parse(readFileSync(resolve('src/locales/en.json'), 'utf8')),
   ru: JSON.parse(readFileSync(resolve('src/locales/ru.json'), 'utf8')),
 };
+
 function label(key: string, locale: 'en' | 'ru') {
   const value = catalogs[locale][key];
   if (!value) throw new Error(`Missing ${locale} test label: ${key}`);
+
   return value;
 }
 const ru = (key: string) => label(key, 'ru');
@@ -43,6 +45,7 @@ async function contentSnapshot(page: Page) {
   return page.evaluate((key) => {
     const saved = JSON.parse(localStorage.getItem(key) ?? 'null');
     if (!saved) return null;
+
     const { locale: _locale, ...workspace } = saved;
     const engineCaches = Object.fromEntries(
       Object.keys(localStorage)
@@ -116,6 +119,7 @@ test('language switches live and persists without changing saved user content or
   await page.addInitScript(
     ({ seed, cacheKey, cache, workspaceKey }) => {
       if (localStorage.getItem('knotra.localization.fixture-installed')) return;
+
       localStorage.setItem(workspaceKey, JSON.stringify(seed));
       localStorage.setItem(cacheKey, JSON.stringify(cache));
       localStorage.setItem('knotra.localization.fixture-installed', 'true');
@@ -129,6 +133,7 @@ test('language switches live and persists without changing saved user content or
   await expect
     .poll(async () => Object.keys((await activeWorkspace(page))?.positions ?? {}).length)
     .toBe(5);
+
   const before = await contentSnapshot(page);
 
   await settings(page, 'en');

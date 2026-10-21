@@ -293,6 +293,7 @@ export function fromExample(example: Example, locale: Locale = 'en'): Workspace 
     document.setIn(['metadata', 'description'], translate(example.descriptionKey, locale));
     source = document.toString({ lineWidth: 110 });
   }
+
   return {
     id: crypto.randomUUID(),
     entrypoint: example.entrypoint ?? 'pipeline.yaml',

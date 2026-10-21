@@ -8,6 +8,7 @@ export default function App() {
   const [initial, setInitial] = useState<State>();
   const [error, setError] = useState('');
   const locale = preferredLocale();
+
   useEffect(() => {
     void loadWorkspace()
       .then(setInitial)
@@ -29,5 +30,6 @@ export default function App() {
         {translate('shell.openingLocalWorkspace', locale)}
       </div>
     );
+
   return <WorkspaceApp initial={initial} />;
 }

@@ -26,6 +26,7 @@ export default function ResourceAssignments({
 }) {
   const { t } = useI18n();
   const uses: { path: string[]; node: NodeDefinition }[] = [];
+
   function visit(graph: Graph, scope: string[]) {
     for (const [id, node] of Object.entries(graph.nodes)) {
       const path = [...scope, id];
@@ -79,6 +80,7 @@ export default function ResourceAssignments({
           : 'resources.modelSource',
     );
   };
+
   return (
     <section
       className="resource-usage mx-7.5 mb-8 min-w-0"

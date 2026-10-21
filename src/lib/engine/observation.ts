@@ -25,6 +25,7 @@ export function packageGraphs(run: EngineRun): Map<string, Graph> {
         const body = record(record(node[node.type]).body);
         return body.nodes ? imports(body as unknown as Graph) : [];
       }
+
       return [];
     });
   const pending = root ? imports(root.spec) : [];
@@ -33,9 +34,11 @@ export function packageGraphs(run: EngineRun): Map<string, Graph> {
     const path = pending.pop();
     if (path === undefined) break;
     if (visited.has(path)) continue;
+
     visited.add(path);
     const file = files.get(path);
     if (!file || graphs.has(path)) continue;
+
     try {
       const child = parsePipeline(decodeText(file.content));
       if (child) {
@@ -46,6 +49,7 @@ export function packageGraphs(run: EngineRun): Map<string, Graph> {
       // A non-text package artifact is not a graph.
     }
   }
+
   return graphs;
 }
 
@@ -54,12 +58,16 @@ function graphAt(root: Graph, path: string): Graph | undefined {
   const segments = path.split('/').filter(Boolean);
   for (let i = 0; i < segments.length; i += 3) {
     if (segments[i] !== 'nodes' || segments[i + 2] !== 'body') return;
+
     const node = graph.nodes[segments[i + 1]];
     if (!node || !['foreach', 'loop'].includes(node.type)) return;
+
     const body = record(record(node[node.type]).body);
     if (!body.nodes) return;
+
     graph = body as unknown as Graph;
   }
+
   return graph;
 }
 
@@ -80,6 +88,7 @@ export function executionGraphs(run: EngineRun, graphs: Map<string, Graph>): Exe
       const file = graphs.get(scope);
       const graph = file && graphAt(file, path);
       if (!graph) continue;
+
       group = {
         key,
         scope,
@@ -93,6 +102,7 @@ export function executionGraphs(run: EngineRun, graphs: Map<string, Graph>): Exe
     }
     group.instances.push(instance);
   }
+
   return result;
 }
 
@@ -120,6 +130,7 @@ export function observationWindow(events: EngineEvent[]): EngineEvent[] {
   while (start > 0 && events.length - start < 5000) {
     const next = JSON.stringify(events[start - 1]).length;
     if (size + next > 4 * 1024 * 1024) break;
+
     size += next;
     start--;
   }
@@ -163,6 +174,7 @@ export function activities(events: EngineEvent[]): Activity[] {
       });
       continue;
     }
+
     const step = typeof data.step === 'number' ? data.step : undefined;
     const key = `${event.instanceId ?? ''}:${event.attemptId ?? ''}:${kind}:${data.callId ?? event.operationId ?? data.operationId ?? `${step ?? ''}:${data.name ?? ''}`}`;
     let row = calls.get(key);
@@ -206,11 +218,13 @@ export function activities(events: EngineEvent[]): Activity[] {
       }
     }
   }
+
   return rows;
 }
 
 export function duration(start?: string, end?: string | number): number | undefined {
   if (!start || !end) return;
+
   const value = (typeof end === 'number' ? end : Date.parse(end)) - Date.parse(start);
   return Number.isFinite(value) ? Math.max(0, value) : undefined;
 }
@@ -231,11 +245,13 @@ export function graphStatuses(group: ExecutionGraph): Record<string, EngineStatu
 
 export function instanceArtifacts(run: EngineRun, instance?: EngineInstance): EngineArtifact[] {
   if (!instance) return [];
+
   const artifacts = new Map<string, EngineArtifact>();
   for (const [port, value] of Object.entries(instance.outputs?.artifacts ?? {})) {
     for (const [index, entry] of (Array.isArray(value) ? value : [value]).entries()) {
       const ref = record(entry);
       if (typeof ref.id !== 'string') continue;
+
       artifacts.set(ref.id, {
         id: ref.id,
         name:
@@ -255,6 +271,7 @@ export function instanceArtifacts(run: EngineRun, instance?: EngineInstance): En
   for (const artifact of run.artifacts)
     if (artifact.origin.instanceId === instance.id || artifacts.has(artifact.id))
       artifacts.set(artifact.id, artifact);
+
   return [...artifacts.values()];
 }
 

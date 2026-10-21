@@ -1,6 +1,7 @@
 mod sse;
 mod store;
 mod validation;
+
 use crate::package::{valid_path, PackageFile};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use futures_util::StreamExt;
@@ -18,7 +19,9 @@ use std::{
 };
 use tauri::{ipc::Channel, Manager, State};
 use validation::check_read_shape;
+
 pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Error {
@@ -123,6 +126,7 @@ fn endpoint(base: &str, token: Option<&str>) -> Result<Url> {
             "Use an HTTP(S) engine base URL without credentials, query or fragment.",
         ));
     }
+
     let local = url.host_str() == Some("localhost")
         || url
             .host_str()
@@ -141,6 +145,7 @@ fn endpoint(base: &str, token: Option<&str>) -> Result<Url> {
     if token.is_some_and(|token| token.len() > 8192 || token.chars().any(|c| c.is_control())) {
         return Err(Error::new("input", "Invalid access token."));
     }
+
     let path = format!("{}/", url.path().trim_end_matches('/'));
     url.set_path(&path);
     Ok(url)
@@ -216,6 +221,7 @@ impl Session {
         if (path.first() == Some(&"runs") && path.len() <= 2) || path == ["requests"] {
             request = request.query(&[("preview", "javascript")]);
         }
+
         let response = request.send().await.map_err(Error::transport)?;
         let status = response.status();
         let bytes = limited(response, 96 * 1024 * 1024).await?;
@@ -284,6 +290,7 @@ impl Package {
         if self.files.len() > 512 {
             return Err(Error::new("limit", "Package exceeds 512 files."));
         }
+
         let mut size = 0;
         let mut entrypoint_found = false;
         for file in &self.files {
@@ -545,6 +552,7 @@ pub async fn engine_connect(
     let revision = backend.revision.fetch_add(1, Ordering::SeqCst) + 1;
     backend.stop()?;
     *backend.session.lock().map_err(Error::storage)? = None;
+
     let base = endpoint(&url, token.as_deref())?;
     let mut session = Session {
         base,
@@ -556,6 +564,7 @@ pub async fn engine_connect(
             .build()
             .map_err(Error::transport)?,
     };
+
     let info = session.json(Method::GET, &["info"], None, None).await?;
     if info["protocol"] != "knotra.desktop/1"
         || !info["engineId"].is_string()
@@ -586,6 +595,7 @@ pub async fn engine_connect(
             "Invalid engine identity or capabilities.",
         ));
     }
+
     session.key = serde_json::to_string(&json!([
         session.base.as_str(),
         info["engineId"],
@@ -594,6 +604,7 @@ pub async fn engine_connect(
     .map_err(Error::storage)?;
     check_response(&Call::Info, &info)?;
     backend.store.cache(&session.key, "info", &info)?;
+
     let mut active = backend.session.lock().map_err(Error::storage)?;
     if revision != backend.revision.load(Ordering::SeqCst) {
         return Err(Error::new(
@@ -659,11 +670,15 @@ async fn execute(store: &store::Store, session: &Session, call: &Call) -> Result
             ));
         }
     }
+
     let (method, path, body, cursor) = call.route();
     session.url(&path)?; // Reject malformed targets before creating a pending network command.
     let command = serde_json::to_value(call).map_err(Error::storage)?;
     let validate_new = || {
-        check_safe_numbers(&command).map_err(|_| Error::new("precision", "The app cannot send numbers outside JavaScript’s safe range. Use the CLI for exact values."))
+        check_safe_numbers(&command).map_err(|_| Error::new(
+            "precision",
+            "The app cannot send numbers outside JavaScript’s safe range. Use the CLI for exact values."
+        ))
     };
     if let Some(id) = call.operation() {
         if id.is_empty()
@@ -683,6 +698,7 @@ async fn execute(store: &store::Store, session: &Session, call: &Call) -> Result
     } else {
         validate_new()?;
     }
+
     let instance_id = match call {
         Call::History { instance_id, .. } => instance_id.as_deref(),
         _ => None,
@@ -710,6 +726,7 @@ async fn execute(store: &store::Store, session: &Session, call: &Call) -> Result
             return Err(error);
         }
     };
+
     check_response(call, &value)?;
     if let Some(id) = call.operation() {
         store.complete(&session.key, id, &value)?;
@@ -837,6 +854,7 @@ async fn download(session: &Session, artifact_id: &str) -> Result<Value> {
         },
         &metadata,
     )?;
+
     let descriptor = &metadata["artifact"];
     let size = descriptor["size"]
         .as_f64()
@@ -844,6 +862,7 @@ async fn download(session: &Session, artifact_id: &str) -> Result<Value> {
     if size > (64 * 1024 * 1024) as f64 {
         return Err(Error::new("limit", "Artifact exceeds 64 MiB."));
     }
+
     let size = size as u64;
     let response = session
         .request(Method::GET, &["artifacts", artifact_id, "content"])?
@@ -854,6 +873,7 @@ async fn download(session: &Session, artifact_id: &str) -> Result<Value> {
     if !response.status().is_success() {
         return Err(Error::new("engine", "Artifact bytes are unavailable."));
     }
+
     let bytes = limited(response, 64 * 1024 * 1024).await?;
     let hash = format!("{:x}", Sha256::digest(&bytes));
     if bytes.len() as u64 != size || descriptor["sha256"] != hash {
@@ -893,6 +913,7 @@ pub fn engine_watch(
     session.url(&["runs", &run_id, "events"])?;
     let store = backend.store.clone();
     let id = run_id.clone();
+
     let task = tauri::async_runtime::spawn(async move {
         let mut delay = 1;
         loop {
@@ -942,6 +963,7 @@ async fn stream(
     if let Some(cursor) = store.cursor(&session.key, run)? {
         request = request.header("Last-Event-ID", cursor);
     }
+
     let response = tokio::time::timeout(Duration::from_secs(15), request.send())
         .await
         .map_err(|_| Error::new("transport", "Event connection timed out."))?
@@ -962,6 +984,7 @@ async fn stream(
     channel
         .send(json!({"type":"connection","status":"connected"}))
         .map_err(Error::storage)?;
+
     let mut parser = sse::Parser::default();
     let mut bytes = response.bytes_stream();
     loop {

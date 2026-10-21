@@ -78,6 +78,7 @@ function emit(message: string, detail: Partial<EngineEvent> = {}) {
       stream.write(`id: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`);
       stream.write(`id: ${event.id}\ndata: ${JSON.stringify(event)}\n\n`);
     }
+
   return event;
 }
 
@@ -127,6 +128,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     reconnectHeaders.push(String(request.headers['last-event-id'] ?? ''));
     const timer = setInterval(() => response.write(': ping\n\n'), 1000);
     response.on('close', () => clearInterval(timer));
+
     return;
   }
   if (request.method === 'GET') {
@@ -150,6 +152,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
         heldRuns.push({ response, value: structuredClone(value) });
         return;
       }
+
       return json(response, value);
     }
     if (path === '/v1/requests') return json(response, { items: requests, nextCursor: null });
@@ -178,8 +181,10 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       return;
     }
     if (path === '/v1/runs/run-1') return json(response, { run: runs[0] });
+
     return json(response, { code: 'NOT_FOUND', message: 'Not found.' }, 404);
   }
+
   const body = await read(request);
   const key = String(request.headers['idempotency-key'] ?? '');
   if (path !== '/v1/packages/validate') {
@@ -226,6 +231,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
         422,
       );
     }
+
     const run: EngineRun = {
       id: 'run-1',
       definitionId: body.definitionId as string,
@@ -282,11 +288,13 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
       response.end('{');
       return;
     }
+
     return json(response, result);
   }
   if (path === '/v1/requests/request-1/response') {
     if (!requests.some((request) => request.id === 'request-1' && request.status === 'open'))
       return json(response, { code: 'REQUEST_CLOSED', message: 'Request already answered.' }, 409);
+
     requests[0].status = 'answered';
     runs[0].status = 'succeeded';
     runs[0].instances[0].status = 'succeeded';
@@ -296,6 +304,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     emit('Review accepted.');
     const result = { accepted: true, requestId: 'request-1' };
     accepted.set(key, result);
+
     return json(response, result);
   }
   if (path === '/v1/runs/run-1/cancel') {
@@ -314,11 +323,13 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
         422,
       );
     }
+
     runs[0].status = 'running';
     runs[0].instances[0].status = 'running';
     runs[0].availableActions = ['cancel'];
     const result = { accepted: true, runId: 'run-1' };
     accepted.set(key, result);
+
     return json(response, result);
   }
   if (path === '/v1/artifacts') {
@@ -337,8 +348,10 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     };
     const result = { artifact: uploaded.descriptor };
     accepted.set(key, result);
+
     return json(response, result);
   }
+
   json(response, { code: 'NOT_FOUND', message: 'Not found.' }, 404);
 }
 
@@ -457,6 +470,7 @@ test('workflow connections suggest available engine resources and keep manual ID
     await panel.locator('summary').click();
     const connection = panel.getByRole('combobox', { name: `${alias} · ${field}`, exact: true });
     await expect(connection).toHaveValue(original);
+
     const options = panel.locator('datalist option');
     await expect(options).toHaveCount(1);
     await expect(options).toHaveAttribute('value', id);
@@ -488,6 +502,7 @@ test('workflow connections suggest available engine resources and keep manual ID
       ]),
     )
     .toBe('manual_model');
+
   const source = parseDocument((await activeWorkspace(page)).source);
   expect(source.getIn(['spec', 'models', 'researcher', 'connection'])).toBe('m1');
   expect(source.toJS().spec.models.researcher.requires).toEqual(['toolCalling']);
@@ -538,6 +553,7 @@ test('engine admission, immutable package, live events, request response and bin
   await expect.poll(() => streams.filter((stream) => !stream.destroyed).length).toBe(1);
   emit('Once, despite duplicate delivery.');
   await expect(page.getByText('Once, despite duplicate delivery.', { exact: true })).toHaveCount(1);
+
   const before = reconnectHeaders.length;
   streams
     .filter((stream) => !stream.destroyed)
@@ -566,10 +582,12 @@ test('engine admission, immutable package, live events, request response and bin
   await nav(page, 'Artifacts');
   await page.getByRole('button', { name: /result.bin/ }).click();
   await expect(page.locator('.artifact-text')).toContainText('Binary artifact');
+
   const result = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const exported = await result;
   expect(exported.suggestedFilename()).toBe('result.bin');
+
   const chunks: Buffer[] = [];
   for await (const chunk of (await exported.createReadStream())!) chunks.push(chunk);
   expect(Buffer.concat(chunks)).toEqual(artifactBytes);
@@ -606,6 +624,7 @@ test('lost start response recovers the exact operation after a browser restart',
   await expect(page.getByText(/command\(s\) awaiting confirmation/)).toBeVisible();
   await page.getByRole('button', { name: /^Reconcile start/ }).click();
   await expect(page.getByText(/command\(s\) awaiting confirmation/)).toHaveCount(0);
+
   const retried = writes.filter((write) => write.path === '/v1/runs');
   expect(retried).toHaveLength(2);
   expect(retried[1]).toEqual(first);
@@ -775,6 +794,7 @@ test('input artifact upload registers exact bytes and can be exported without te
   expect(writes.at(-1)?.key).toBeTruthy();
   await page.getByRole('button', { name: /input.bin/ }).click();
   await expect(page.locator('.artifact-text')).toContainText('Binary artifact');
+
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const exported = await download;
@@ -852,6 +872,7 @@ test('a definitively rejected start can be corrected without an impossible recon
   await page.getByRole('textbox', { name: 'Workflow input values' }).fill('{"topic":"Corrected"}');
   await page.getByRole('button', { name: 'Start run', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Future engine workflow' })).toBeVisible();
+
   const starts = writes.filter((write) => write.path === '/v1/runs');
   expect(starts).toHaveLength(2);
   expect(starts[0].key).not.toBe(starts[1].key);
@@ -917,6 +938,7 @@ test('unsafe event data neither renders nor advances the durable browser cursor'
   await expect.poll(() => streams.filter((stream) => !stream.destroyed).length).toBe(1);
   emit('A safe event.');
   await expect(page.getByText('A safe event.', { exact: true })).toHaveCount(1);
+
   const before = reconnectHeaders.length;
   streams
     .filter((stream) => !stream.destroyed)
@@ -927,12 +949,14 @@ test('unsafe event data neither renders nor advances the durable browser cursor'
   await expect.poll(() => reconnectHeaders.length).toBeGreaterThan(before);
   expect(reconnectHeaders.at(-1)).toBe('event-1');
   await expect(page.getByText('Unsafe value must not render.', { exact: true })).toHaveCount(0);
+
   const saved = await page.evaluate(async () => {
     const key = Object.keys(localStorage).find((key) => key.startsWith('knotra.engine.v1:'))!;
     const path = '/src/lib/engine/browserEvents.ts';
     const { browserEventState } = await import(path);
     return browserEventState(key, 'run-1');
   });
+
   expect(saved.cursor).toBe('event-1');
   expect(saved.events).toHaveLength(1);
 });
@@ -1011,6 +1035,7 @@ spec:
   await expect(page.locator('.execution-inspector')).toContainText('Waiting for');
   await page.locator('.react-flow__node[data-id="draft"]').click();
   await expect.poll(() => streams.filter((stream) => !stream.destroyed).length).toBe(1);
+
   const model = { instanceId: 'i-draft', attemptId: 'i-draft.a1', operationId: 'model-one' };
   for (const status of ['pending', 'ready', 'running'])
     emit(status, { ...model, type: 'node', data: { status } });

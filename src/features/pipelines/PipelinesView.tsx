@@ -45,6 +45,7 @@ export function PipelinesView({
         ),
     [workspaces, query, sort, locale, t],
   );
+
   return (
     <section className="page pipelines-page pb-8.75 min-h-full">
       <div className="page-heading flex items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">
@@ -172,6 +173,7 @@ export function PipelinesView({
 export function TemplateLibrary({ onSelect }: { onSelect: (id: string) => void }) {
   const { t } = useI18n();
   const [category, setCategory] = useState<Example['category']>('starter');
+
   return (
     <div className="template-library">
       <fieldset

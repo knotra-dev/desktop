@@ -114,6 +114,7 @@ test('advanced format disclosure preserves data bindings and allows schema chang
   await expect
     .poll(async () => (await review(page)).inputs.draft.schema)
     .toEqual({ type: 'string', minLength: 1 });
+
   const after = await review(page);
   expect(after.inputs.draft.bind).toEqual(before.inputs.draft.bind);
   expect(after.inputs.context).toEqual(before.inputs.context);
@@ -135,11 +136,13 @@ test('existing fallback and pointer bindings stay editable in advanced mapping',
   await expect(context.getByRole('textbox', { name: 'JSON pointer', exact: true })).toHaveValue(
     '/metadata',
   );
+
   const fallback = port(page, 'fallback');
   const bindings = fallback.getByRole('textbox', {
     name: 'Fallback bindings for fallback',
     exact: true,
   });
+
   await expect(bindings).toBeVisible();
   await bindings.fill('[{"from":"nodes.source.outputs.text"},{"value":"No review draft"}]');
   await bindings.press('Tab');

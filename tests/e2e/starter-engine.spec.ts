@@ -12,8 +12,11 @@ test.skip(
   !endpoint,
   'Set KNOTRA_E2E_ENDPOINT to a real engine with the bundled local Qwen profile.',
 );
+
 test.describe.configure({ mode: 'serial' });
+
 test.setTimeout(360_000);
+
 test.use({ locale: 'en-US' });
 
 let activeRunId: string | undefined;
@@ -69,6 +72,7 @@ async function startStarter(page: Page, starterTitle: string) {
   await page.getByRole('combobox', { name: 'Engine profile' }).selectOption('local');
   await page.getByRole('button', { name: 'Check with engine' }).click();
   await expect(page.getByRole('dialog')).toContainText('Engine admission checks passed');
+
   const started = page.waitForResponse(
     (response) =>
       response.url().split('?')[0] === `${endpoint}/v1/runs` &&
@@ -77,10 +81,12 @@ async function startStarter(page: Page, starterTitle: string) {
   await page.getByRole('button', { name: 'Start run', exact: true }).click();
   const response = await started;
   expect(response.ok()).toBe(true);
+
   const { run } = (await response.json()) as { run: EngineRun };
   activeRunId = run.id;
   console.info(`Started ${starterTitle}: ${run.id}`);
   await expect(page.getByRole('dialog')).toHaveCount(0);
+
   return { id: run.id, title };
 }
 
@@ -94,6 +100,7 @@ async function completedRun(page: Page, runId: string) {
   await expect(page.locator('.page-heading .status')).toHaveText(/^(Completed|Failed|Cancelled)$/, {
     timeout: 300_000,
   });
+
   const run = await readRun(page, runId);
   expect(run.status, JSON.stringify(run.diagnostics)).toBe('succeeded');
   expect(run.instances.every((instance) => instance.status === 'succeeded')).toBe(true);
@@ -110,6 +117,7 @@ async function historyFor(page: Page, run: EngineRun, instanceId: string): Promi
     if (cursor) query.set('cursor', cursor);
     const response = await page.request.get(`${endpoint}/v1/runs/${run.id}/history?${query}`);
     expect(response.ok()).toBe(true);
+
     const pageData = await response.json();
     events.push(...pageData.items);
     cursor = pageData.nextCursor;
@@ -118,6 +126,7 @@ async function historyFor(page: Page, run: EngineRun, instanceId: string): Promi
       cursors.add(cursor);
     }
   } while (cursor);
+
   return events;
 }
 
@@ -132,6 +141,7 @@ async function exportedArtifact(page: Page, artifact: EngineArtifact, expected: 
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const result = await download;
   expect(result.suggestedFilename()).toBe(artifact.name);
+
   const bytes = readFileSync((await result.path())!);
   expect(bytes).toEqual(expected);
   expect(bytes.length).toBe(artifact.size);
@@ -151,9 +161,11 @@ test('hello starter streams a real response and exports its exact text bytes', a
   const started = await startStarter(page, 'Hello, model');
   const run = await completedRun(page, started.id);
   expect(run.inputs.name).toBe('Knotra');
+
   const greeting = run.outputs.greeting;
   expect(typeof greeting).toBe('string');
   expect(greeting).toContain('Knotra');
+
   const instance = run.instances.find((item) => item.nodeId === 'greet')!;
   const history = await historyFor(page, run, instance.id);
   await attachHistory(testInfo, history);
@@ -164,6 +176,7 @@ test('hello starter streams a real response and exports its exact text bytes', a
   expect(record(history[completed].data).model).toBe('qwen3.5:9b');
   await page.locator('.react-flow__node[data-id="greet"]').click();
   await expect(page.locator('.execution-response pre')).toContainText(greeting as string);
+
   const artifact = run.artifacts.find((item) => item.name === 'greeting.txt')!;
   expect(artifact?.mediaType).toBe('text/plain');
   await page.screenshot({ path: testInfo.outputPath('starter-hello.png'), fullPage: true });
@@ -179,14 +192,18 @@ test('research starter compares independent quoted evidence and exports a reprod
   expect(investigators).toHaveLength(3);
   expect(new Set(investigators.map((item) => item.id)).size).toBe(3);
   expect(investigators.map((item) => item.iterationIndex).sort()).toEqual([0, 1, 2]);
+
   const foreach = run.instances.find((item) => item.nodeId === 'evidence')!;
   expect(investigators.every((item) => item.parentInstanceId === foreach.id)).toBe(true);
+
   const sources = new Map(
     run.package.files
       .filter((file) => file.path.startsWith('sources/'))
       .map((file) => [file.path, Buffer.from(file.content, 'base64')]),
   );
+
   expect(sources.size).toBe(3);
+
   const allHistory: EngineEvent[] = [];
   const normalize = (text: string) => text.replace(/\s+/g, ' ').trim();
   const seenSources = new Set<string>();
@@ -209,7 +226,9 @@ test('research starter compares independent quoted evidence and exports a reprod
         record(data.arguments).root === 'package'
       );
     });
+
     expect(read, `Agent must actually read ${path}`).toBeDefined();
+
     const result = history.find(
       (event) => event.type === 'tool.completed' && event.operationId === read!.operationId,
     );
@@ -235,10 +254,12 @@ test('research starter compares independent quoted evidence and exports a reprod
   expect(ranked[0].weighted_score).toBeCloseTo(60.62, 2);
   expect(ranked[1].weighted_score).toBeCloseTo(59.12, 2);
   expect(ranked[2].weighted_score).toBeCloseTo(49.38, 2);
+
   const decision = record(comparison.decision);
   expect(decision.selected_source).toBe('sources/hosted.md');
   expect(decision.eligible_sources).toEqual(['sources/hosted.md', 'sources/cms.md']);
   expect(decision.ineligible_sources).toEqual(['sources/custom.md']);
+
   const recommendation = run.outputs.recommendation as string;
   expect(recommendation.length).toBeGreaterThan(100);
   await page.locator('.react-flow__node[data-id="synthesize"]').click();
@@ -258,6 +279,7 @@ test('research starter compares independent quoted evidence and exports a reprod
   });
   const artifacts = new Map(run.artifacts.map((artifact) => [artifact.name, artifact]));
   expect([...artifacts.keys()].sort()).toEqual(['comparison.json', 'dossier.md', 'dossier.zip']);
+
   const bytes = new Map<string, Buffer>();
   for (const name of ['dossier.md', 'comparison.json', 'dossier.zip']) {
     const artifact = artifacts.get(name)!;
@@ -273,6 +295,7 @@ test('research starter compares independent quoted evidence and exports a reprod
   expect(dossier).toContain('Eligible sources: `sources/hosted.md`, `sources/cms.md`.');
   for (const path of sources.keys()) expect(dossier).toContain(path);
   expect(JSON.parse(bytes.get('comparison.json')!.toString('utf8'))).toEqual(comparison);
+
   const bundle = unzipSync(bytes.get('dossier.zip')!);
   expect(Object.keys(bundle).sort()).toEqual([
     'comparison.json',

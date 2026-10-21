@@ -20,11 +20,13 @@ export function ReviewArtifact({
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
   async function inspect() {
     setBusy(true);
     setError('');
     setPreview('');
     setNotice('');
+
     try {
       const result = await downloadArtifact(artifact.id);
       if (result.artifact.sha256 !== artifact.sha256 || result.artifact.size !== artifact.size)
@@ -40,6 +42,7 @@ export function ReviewArtifact({
       setBusy(false);
     }
   }
+
   return (
     <section className="review-artifact min-w-0 max-w-full">
       <div className="execution-artifact flex items-center gap-2.25 mb-2 border border-solid border-line rounded-[7px] p-2.5">

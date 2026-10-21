@@ -75,6 +75,7 @@ function nodeDetail(
   if (node.type === 'loop')
     return t('editor.countMaximumIterations', { count: String(config.maxIterations) });
   if (node.type === 'pipeline') return String(config.file);
+
   return t('editor.conditionalRouting');
 }
 
@@ -118,6 +119,7 @@ function PipelineCard({ data, selected }: NodeProps<CardNode>) {
       <small>{editorPortTypeLabel(port, t)}</small>
     </div>
   );
+
   return (
     <div
       className={`flow-card port-card w-61 min-h-41.5 border border-solid border-line-strong rounded-[14px] bg-surface-raised text-foreground [transition:border-color_0.15s] relative [--node-color:var(--accent)] p-4.25 ${data.compact ? 'run-port-card' : ''} node-color-${meta.color} ${selected ? 'flow-card-selected' : ''} ${data.status ? `execution-node-${data.status}` : ''}`}
@@ -202,9 +204,11 @@ function FitNewBlocks({
   const initialized = useNodesInitialized();
   const { fitView } = useReactFlow();
   const fitted = useRef('');
+
   useEffect(() => {
     const viewport = container.current?.querySelector('.react-flow');
     if (!initialized || !count || !viewport) return;
+
     let frame = 0;
     const schedule = () => {
       cancelAnimationFrame(frame);
@@ -216,14 +220,17 @@ function FitNewBlocks({
         void fitView({ padding: 0.06, maxZoom: 1, duration: 0 });
       });
     };
+
     const observer = new ResizeObserver(schedule);
     observer.observe(viewport);
     schedule();
+
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
     };
   }, [initialized, count, fitView, container]);
+
   return null;
 }
 
@@ -275,12 +282,14 @@ export default function GraphView({
         !connection.targetHandle?.startsWith('input:')
       )
         return;
+
       const ports = {
         source: connection.source,
         target: connection.target,
         sourcePort: connection.sourceHandle.slice(7),
         targetPort: connection.targetHandle.slice(6),
       };
+
       const error = connectionError(graph, ports, importedGraphs);
       if (error) onNotify?.(message(error));
       else onConnect?.(ports);
@@ -320,6 +329,7 @@ export default function GraphView({
       ) *
         28;
     for (const [id, node] of entries) layout.setNode(id, { width, height: height(node) });
+
     const edges: Edge[] = [];
     for (const [id, node] of entries) {
       const represented = new Set<string>();
@@ -359,6 +369,7 @@ export default function GraphView({
           },
         });
       };
+
       for (const [name, port] of Object.entries(node.inputs ?? {})) {
         const match = port.bind?.from?.match(
           /^nodes\.([a-z][a-z0-9_]*)\.outputs\.([a-z][a-z0-9_]*)$/,
@@ -376,7 +387,9 @@ export default function GraphView({
         if (!represented.has(dep))
           addEdge(dep, 'dependency-out', 'dependency-in', 'dependency', true);
     }
+
     dagre.layout(layout);
+
     const research =
       editable &&
       ['discover', 'research', 'draft', 'review', 'publish'].every((id) => graph.nodes[id]);
@@ -387,6 +400,7 @@ export default function GraphView({
       review: { x: 312, y: 300 },
       publish: { x: 624, y: 300 },
     };
+
     const placed = { ...defaultPositions.current, ...positions };
     const hasSavedLayout = entries.some(([id]) => placed[id]);
     for (const [id, node] of entries) {
@@ -420,6 +434,7 @@ export default function GraphView({
       placed[id] = position;
       defaultPositions.current[id] = position;
     }
+
     const nodes: LayoutNode[] = entries.map(([id, node]) => ({
       id,
       type: 'pipelineNode',
@@ -436,6 +451,7 @@ export default function GraphView({
         resourceLabel: resourceLabels?.[id],
       },
     }));
+
     return { nodes, edges };
   }, [
     graph,
@@ -454,13 +470,16 @@ export default function GraphView({
     [layoutNodes, choosePort],
   );
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<CardNode>([]);
+
   useEffect(() => setFlowNodes(nodes), [nodes, setFlowNodes]);
+
   useEffect(() => {
     const missing = Object.fromEntries(
       nodes.filter((node) => !positions?.[node.id]).map((node) => [node.id, node.position]),
     );
     if (Object.keys(missing).length) onLayout?.(missing);
   }, [nodes, positions, onLayout]);
+
   return (
     <div
       className="graph-view flex-1 min-w-0 relative bg-surface overflow-hidden [isolation:isolate] flex flex-col"

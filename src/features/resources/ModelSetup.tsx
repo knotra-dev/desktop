@@ -29,9 +29,11 @@ import {
 
 type Provider = '' | SetupProvider;
 type Action = 'sign-in' | 'save' | 'models' | 'sources';
+
 function errorText(error: unknown, apiKey: string): string {
   const text = error instanceof Error ? error.message : String(error);
   const secret = apiKey.trim();
+
   return secret ? text.replaceAll(secret, '…') : text;
 }
 
@@ -84,6 +86,7 @@ export default function ModelSetup() {
       /* Keep the address editable until it is complete. */
     }
   }
+
   const credentialsReady =
     hasAuth &&
     (!compatible || !!endpoint) &&
@@ -153,6 +156,7 @@ export default function ModelSetup() {
 
   useEffect(() => {
     if (!desktop) return;
+
     const current = ++revision.current;
     let active = true;
     let inventoryRevision = 0;
@@ -207,6 +211,7 @@ export default function ModelSetup() {
 
   useEffect(() => {
     if ((status?.sourcePhase ?? status?.phase) !== 'signing_in') return;
+
     const current = revision.current;
     let active = true;
     const timer = window.setTimeout(() => {
@@ -243,12 +248,15 @@ export default function ModelSetup() {
     setError('');
     setCatalogEmpty(false);
   }
+
   async function signIn() {
     if (selected !== 'codex' && selected !== 'claude') return;
+
     const current = ++revision.current;
     setAction('sign-in');
     setError('');
     setAccountSelected(false);
+
     try {
       receive(await signInProvider(selected), current);
     } catch (error) {
@@ -258,14 +266,17 @@ export default function ModelSetup() {
       }
     }
   }
+
   async function loadModels() {
     if (!selected || !credentialsReady) return;
+
     const current = ++revision.current;
     setAction('models');
     setModels([]);
     setError('');
     setCatalogEmpty(false);
     setCatalogFailed(false);
+
     try {
       const stored =
         editing && !apiKey.trim() && endpoint === (editing.baseUrl ?? '')
@@ -291,11 +302,14 @@ export default function ModelSetup() {
       if (current === revision.current) setAction(undefined);
     }
   }
+
   async function save() {
     if (!selected || !canSave) return;
+
     const current = ++revision.current;
     setAction('save');
     setError('');
+
     try {
       const item = await saveConnection({
         ...(editing ? { id: editing.id, expectedRevision: editing.revision } : {}),
@@ -321,9 +335,11 @@ export default function ModelSetup() {
       if (current === revision.current) setAction(undefined);
     }
   }
+
   async function cancel() {
     const current = ++revision.current;
     setCanceling(true);
+
     try {
       const next = await cancelProviderSignIn();
       if (current === revision.current) {
@@ -339,6 +355,7 @@ export default function ModelSetup() {
       }
     }
   }
+
   function edit(source?: SavedConnection) {
     reset();
     setEditing(source);
@@ -352,6 +369,7 @@ export default function ModelSetup() {
     setFormOpen(true);
     requestedFocus.current = source ? 'name' : 'chooser';
   }
+
   function choose(next: SetupProvider) {
     reset();
     setProvider(next);
@@ -360,10 +378,12 @@ export default function ModelSetup() {
     setBaseUrl('');
     requestedFocus.current = 'name';
   }
+
   async function update(source: SavedConnection, remove: boolean) {
     const current = ++revision.current;
     setAction('sources');
     setError('');
+
     try {
       if (remove) {
         const items = await removeConnection(source.id, source.revision);
@@ -390,6 +410,7 @@ export default function ModelSetup() {
 
   async function open(dependency: 'docker' | 'ollama') {
     const current = revision.current;
+
     try {
       await openDependency(dependency);
       const next = await setupStatus();

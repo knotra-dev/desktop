@@ -17,6 +17,7 @@ impl Store {
                 "This workspace was created by a newer app. Its database has not been changed.",
             ));
         }
+
         db.busy_timeout(std::time::Duration::from_secs(5))
             .map_err(Error::storage)?;
         db.execute_batch(
@@ -53,6 +54,7 @@ impl Store {
         if value["version"] != 1 || !value["workspaces"].is_array() || !value["runs"].is_array() {
             return Err(Error::new("input", "Unsupported workspace backup."));
         }
+
         let text = serde_json::to_string(value).map_err(Error::storage)?;
         if text.len() > 96 * 1024 * 1024 {
             return Err(Error::new(
@@ -60,6 +62,7 @@ impl Store {
                 "Workspace exceeds 96 MiB. Export old runs or split packages.",
             ));
         }
+
         self.db()?.execute(
             "INSERT INTO local_state VALUES(1,?1) ON CONFLICT(id) DO UPDATE SET json=excluded.json",
             [text],
@@ -90,10 +93,27 @@ impl Store {
             let (key, value) = row.map_err(Error::storage)?;
             cache.insert(key, serde_json::from_str(&value).map_err(Error::storage)?);
         }
-        let mut statement = db.prepare("SELECT id,request FROM operations WHERE engine=?1 AND response IS NULL ORDER BY rowid").map_err(Error::storage)?;
-        let pending = statement.query_map([engine], |row| Ok((row.get::<_,String>(0)?,row.get::<_,String>(1)?))).map_err(Error::storage)?.map(|row| { let (id, request) = row.map_err(Error::storage)?; Ok(json!({"id":id,"request":serde_json::from_str::<Value>(&request).map_err(Error::storage)?})) }).collect::<Result<Vec<_>>>()?;
+
+        let mut statement = db
+            .prepare("SELECT id,request FROM operations WHERE engine=?1 AND response IS NULL ORDER BY rowid")
+            .map_err(Error::storage)?;
+        let pending = statement
+            .query_map([engine], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(Error::storage)?
+            .map(|row| {
+                let (id, request) = row.map_err(Error::storage)?;
+                Ok(json!({
+                    "id":id,
+                    "request":serde_json::from_str::<Value>(&request).map_err(Error::storage)?
+                }))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         Ok(json!({"cache":cache,"pending":pending}))
     }
+
     // Record BEFORE sending. A lost response must reuse the same key and exact body after restart.
     pub fn prepare(
         &self,
@@ -122,6 +142,7 @@ impl Store {
                 .map(|text| serde_json::from_str(&text).map_err(Error::storage))
                 .transpose();
         }
+
         // Retained commands replay their exact body even if admission checks changed.
         validate_new()?;
         db.execute(
@@ -169,13 +190,16 @@ impl Store {
                 params![engine,run,id],
             ).map_err(Error::storage)?;
         }
+
         tx.commit().map_err(Error::storage)?;
         Ok(fresh)
     }
 
     pub fn events(&self, engine: &str, run: &str) -> Result<Vec<Value>> {
         let db = self.db()?;
-        let mut statement=db.prepare("SELECT json FROM (SELECT rowid,json FROM events WHERE engine=?1 AND run=?2 ORDER BY rowid DESC LIMIT 1000) ORDER BY rowid").map_err(Error::storage)?;
+        let mut statement = db
+            .prepare("SELECT json FROM (SELECT rowid,json FROM events WHERE engine=?1 AND run=?2 ORDER BY rowid DESC LIMIT 1000) ORDER BY rowid")
+            .map_err(Error::storage)?;
         let result = statement
             .query_map(params![engine, run], |row| row.get::<_, String>(0))
             .map_err(Error::storage)?
@@ -188,6 +212,7 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     fn store() -> Store {
         Store::open(Path::new(":memory:")).unwrap()
     }

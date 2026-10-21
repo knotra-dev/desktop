@@ -79,6 +79,7 @@ async function open(page: Page, pipeline = definition(), account = false) {
       if (!localStorage.getItem('knotra.workspace.v1'))
         localStorage.setItem('knotra.workspace.v1', JSON.stringify(state));
       if (!account) return;
+
       Object.assign(window, {
         isTauri: true,
         __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
@@ -104,6 +105,7 @@ async function open(page: Page, pipeline = definition(), account = false) {
               ];
             if (command === 'desktop_setup_status') return { phase: 'idle' };
             if (command === 'engine_cache') return { cache: {}, pending: [] };
+
             return 1;
           },
         },
@@ -217,6 +219,7 @@ test('tool argument modes keep authored JSON and expressions and hide response f
   await expect
     .poll(async () => record((await pipeline(page)).spec.nodes.lookup.tool).arguments)
     .toEqual({ expr: '{"query": args.topic}' });
+
   const response = page.getByRole('combobox', { name: 'Response format', exact: true });
   await expect(response).toBeHidden();
   await disclosure(page, 'Response format').click();
@@ -239,6 +242,7 @@ for (const binding of [
     await expect(page.getByRole('combobox', { name: 'Tool arguments', exact: true })).toHaveValue(
       'binding',
     );
+
     const before = record((await pipeline(page)).spec.nodes.lookup.tool).arguments;
     await page
       .getByRole('textbox', { name: 'Description', exact: true })
@@ -261,6 +265,7 @@ test('model parameters warn for account sources and reset only the current block
   await expect(page.locator('.inspector-content')).toContainText(
     'Account sources do not accept API parameters.',
   );
+
   const parameters = page.getByRole('textbox', { name: 'Model parameters', exact: true });
   await parameters.fill('{"temperature":0.6,"maxTokens":128}');
   await parameters.press('Tab');
@@ -277,6 +282,7 @@ test('model parameters warn for account sources and reset only the current block
   expect((await model(page, 'answer')).parameters).toBeUndefined();
   expect((await model(page, 'other')).parameters).toEqual({ temperature: 0.2 });
   if (process.env.KNOTRA_BLOCK_VISUALS !== '1') return;
+
   await page.setViewportSize({ width: 1000, height: 680 });
   await page.reload();
   await openActiveEditor(page);

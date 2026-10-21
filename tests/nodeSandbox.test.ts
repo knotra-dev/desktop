@@ -75,6 +75,7 @@ describe('per-node sandbox selection', () => {
     const value = pipeline();
     value.spec.sandboxes!.first_sandbox = { profile: 'other' };
     expect(nodeSandboxSelection(value, [], 'first', 'node_box')?.alias).toBe('first_sandbox_2');
+
     const long = 'a'.repeat(64);
     value.spec.nodes[long] = code();
     expect(nodeSandboxSelection(value, [], long, 'node_box')?.alias).toMatch(
@@ -122,6 +123,7 @@ describe('agent sandbox permissions', () => {
       type: 'agent',
       tools: { inherit: false, sandbox: ['process.exec'] },
     };
+
     expect(agentSandboxPermission(value.spec, node, 'process.exec', true)).toEqual({
       inherit: false,
       sandbox: ['process.exec'],

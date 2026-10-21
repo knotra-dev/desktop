@@ -15,6 +15,7 @@ export function WorkspaceRecovery({
   const input = useRef<HTMLInputElement>(null);
   const [candidate, setCandidate] = useState<State>();
   const [detail, setDetail] = useState(error);
+
   return (
     <div
       className="loading workspace-recovery text-muted flex-col gap-4.5 text-center p-10"

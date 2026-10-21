@@ -35,6 +35,7 @@ pub struct ControlError {
     pub code: String,
     pub message: String,
 }
+
 type Result<T> = std::result::Result<T, ControlError>;
 type Outcome = Result<Value>;
 type Dispatch = Arc<
@@ -50,9 +51,11 @@ impl ControlError {
             message: message.into(),
         }
     }
+
     fn invalid() -> Self {
         Self::new("invalid", "The control request is invalid.")
     }
+
     fn disabled() -> Self {
         Self::new(
             "disabled",
@@ -67,14 +70,19 @@ pub struct ControlStatus {
     protocol: &'static str,
     available: bool,
     frontend_ready: bool,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     command: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     args: Option<Vec<String>>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     config: Option<Value>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     descriptor_path: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
 }
@@ -83,16 +91,19 @@ pub struct DesktopControl {
     bridge: Option<Arc<Bridge>>,
     error: Option<String>,
 }
+
 struct Receipt {
     fingerprint: [u8; 32],
     outcome: Mutex<Option<Outcome>>,
     changed: Notify,
 }
+
 #[derive(Default)]
 struct Receipts {
     entries: HashMap<String, Arc<Receipt>>,
     bytes: usize,
 }
+
 struct Bridge {
     endpoint: String,
     token: String,
@@ -125,6 +136,7 @@ impl DesktopControl {
                 let app = app.clone();
                 Box::pin(async move { dispatch(&app, &bridge, &operation, arguments).await })
             });
+
             start(data, command, dispatch)
         })();
         match result {
@@ -166,6 +178,7 @@ impl DesktopControl {
         let config = command.as_ref().zip(args.as_ref()).map(
             |(command, args)| json!({"mcpServers":{"knotra":{"command":command,"args":args}}}),
         );
+
         ControlStatus {
             protocol: PROTOCOL,
             available,
@@ -206,6 +219,7 @@ fn start(data: PathBuf, command: PathBuf, dispatch: Dispatch) -> Result<Arc<Brid
             ControlError::new("disabled", "Cannot protect desktop control settings.")
         })?;
     }
+
     let lock_path = data.join("desktop-control.lock");
     if fs::symlink_metadata(&lock_path)
         .is_ok_and(|metadata| metadata.file_type().is_symlink() || !metadata.is_file())
@@ -233,6 +247,7 @@ fn start(data: PathBuf, command: PathBuf, dispatch: Dispatch) -> Result<Arc<Brid
             "Desktop control is already owned by another Knotra app instance.",
         )
     })?;
+
     let listener = TcpListener::bind(("127.0.0.1", 0))
         .map_err(|_| ControlError::new("disabled", "Cannot start local desktop control."))?;
     listener
@@ -244,6 +259,7 @@ fn start(data: PathBuf, command: PathBuf, dispatch: Dispatch) -> Result<Arc<Brid
             .local_addr()
             .map_err(|_| ControlError::new("disabled", "Cannot locate desktop control."))?
     );
+
     let descriptor = data.join("desktop-control.json");
     let token = random_token()?;
     let temporary = data.join(format!(".desktop-control-{}.tmp", &random_token()?[..16]));
@@ -283,6 +299,7 @@ fn start(data: PathBuf, command: PathBuf, dispatch: Dispatch) -> Result<Arc<Brid
         let _ = fs::remove_file(&temporary);
     }
     result?;
+
     let bridge = Arc::new(Bridge {
         endpoint,
         token,
@@ -365,6 +382,7 @@ impl Bridge {
         if !self.ready.load(Ordering::SeqCst) || self.stopped.load(Ordering::SeqCst) {
             return Err(ControlError::disabled());
         }
+
         let id = format!(
             "control_{}_{}",
             self.sequence.fetch_add(1, Ordering::Relaxed),
@@ -382,9 +400,16 @@ impl Bridge {
             self.pending.lock().unwrap().remove(&id);
             return Err(ControlError::disabled());
         }
+
         let result = tokio::time::timeout(FRONTEND_TIMEOUT, receive).await;
         self.pending.lock().unwrap().remove(&id);
-        match result { Ok(Ok(outcome)) => outcome, _ => Err(ControlError::new("timeout", "Knotra did not finish the request in time. Inspect the app before retrying a mutation with a new request ID.")) }
+        match result {
+            Ok(Ok(outcome)) => outcome,
+            _ => Err(ControlError::new(
+                "timeout",
+                "Knotra did not finish the request in time. Inspect the app before retrying a mutation with a new request ID."
+            ))
+        }
     }
 
     async fn invoke(
@@ -411,6 +436,7 @@ impl Bridge {
                     "Mutating control requests require a stable X-Knotra-Request-Id.",
                 )
             })?;
+
         let mut hash = Sha256::new();
         hash.update(operation.as_bytes());
         hash.update([0]);
@@ -430,7 +456,10 @@ impl Bridge {
                 if receipts.entries.len() >= MAX_RECEIPTS
                     || receipts.bytes + MAX_BYTES > RECEIPT_BYTES
                 {
-                    return Err(ControlError::new("busy", "Desktop control receipt capacity is full. Finish this session before starting more mutations."));
+                    return Err(ControlError::new(
+                        "busy",
+                        "Desktop control receipt capacity is full. Finish this session before starting more mutations."
+                    ));
                 }
                 let receipt = Arc::new(Receipt {
                     fingerprint,
@@ -442,6 +471,7 @@ impl Bridge {
                 (receipt, true)
             }
         };
+
         if created {
             let bridge = self.clone();
             let receipt = receipt.clone();
@@ -450,7 +480,10 @@ impl Bridge {
                 let mut outcome = (bridge.dispatch)(bridge.clone(), operation, arguments).await;
                 let mut bytes = serde_json::to_vec(&wire(&outcome)).unwrap().len();
                 if bytes > MAX_BYTES {
-                    outcome = Err(ControlError::new("limit", "The operation finished but its result exceeds the desktop control size limit. Inspect the app before retrying."));
+                    outcome = Err(ControlError::new(
+                        "limit",
+                        "The operation finished but its result exceeds the desktop control size limit. Inspect the app before retrying."
+                    ));
                     bytes = serde_json::to_vec(&wire(&outcome)).unwrap().len();
                 }
                 bridge.receipts.lock().unwrap().bytes -= MAX_BYTES - bytes;
@@ -458,6 +491,7 @@ impl Bridge {
                 receipt.changed.notify_waiters();
             });
         }
+
         loop {
             let changed = receipt.changed.notified();
             if let Some(outcome) = receipt.outcome.lock().unwrap().clone() {
@@ -552,6 +586,7 @@ fn wire(outcome: &Outcome) -> Value {
         Err(error) => json!({"error":error}),
     }
 }
+
 fn response(status: StatusCode, outcome: Outcome) -> Response<Full<Bytes>> {
     let mut bytes = serde_json::to_vec(&wire(&outcome)).unwrap();
     if bytes.len() > MAX_BYTES {
@@ -592,6 +627,7 @@ async fn http_request(
             "Browser and foreign-host control requests are not accepted.",
         );
     }
+
     let expected = format!("Bearer {}", bridge.token);
     let auth = request
         .headers()
@@ -640,6 +676,7 @@ async fn http_request(
             )),
         ));
     };
+
     let request_id = request
         .headers()
         .get("x-knotra-request-id")
@@ -671,6 +708,7 @@ async fn http_request(
             ))
         }
     };
+
     let outcome = bridge.invoke(operation, arguments, request_id).await;
     Ok(response(StatusCode::OK, outcome))
 }
@@ -678,6 +716,7 @@ async fn http_request(
 fn parse<T: for<'a> Deserialize<'a>>(arguments: Value) -> Result<T> {
     serde_json::from_value(arguments).map_err(|_| ControlError::invalid())
 }
+
 fn source_error(message: String) -> ControlError {
     if message.contains("changed since") || message.contains("changed while") {
         ControlError::new(
@@ -710,6 +749,7 @@ async fn dispatch<R: tauri::Runtime>(
         id: String,
         expected_revision: u64,
     }
+
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct Credentials {
@@ -717,6 +757,7 @@ async fn dispatch<R: tauri::Runtime>(
         api_key: Option<String>,
         base_url: Option<String>,
     }
+
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct ModelSave {
@@ -728,11 +769,13 @@ async fn dispatch<R: tauri::Runtime>(
         model: Option<String>,
         expected_revision: Option<u64>,
     }
+
     #[derive(Deserialize)]
     #[serde(deny_unknown_fields)]
     struct Provider {
         provider: String,
     }
+
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct McpDiscover {
@@ -741,6 +784,7 @@ async fn dispatch<R: tauri::Runtime>(
         token: Option<String>,
         clear_token: Option<bool>,
     }
+
     #[derive(Deserialize)]
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct McpSave {
@@ -752,64 +796,162 @@ async fn dispatch<R: tauri::Runtime>(
         allowed_tools: Vec<String>,
         expected_revision: Option<u64>,
     }
+
     let result = match operation {
         "model_source_list" => {
             let _: Empty = parse(arguments)?;
-            json!({"connections":connections::desktop_connections_list(app.state()).await.map_err(source_error)?})
+            json!({
+                "connections": connections::desktop_connections_list(app.state())
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_catalog" => {
             let input: Credentials = parse(arguments)?;
-            json!({"items":setup::desktop_provider_models(app.state(),input.provider,input.api_key,input.base_url).await.map_err(source_error)?})
+            json!({
+                "items": setup::desktop_provider_models(
+                    app.state(),
+                    input.provider,
+                    input.api_key,
+                    input.base_url
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_save" => {
             let input: ModelSave = parse(arguments)?;
             if input.id.is_some() && input.expected_revision.is_none() {
                 return Err(ControlError::invalid());
             }
-            json!({"connection":connections::desktop_connection_save(app.state(),input.id,input.title,input.provider,input.api_key,input.base_url,input.model,input.expected_revision).await.map_err(source_error)?})
+            json!({
+                "connection": connections::desktop_connection_save(
+                    app.state(),
+                    input.id,
+                    input.title,
+                    input.provider,
+                    input.api_key,
+                    input.base_url,
+                    input.model,
+                    input.expected_revision
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_refresh" => {
             let input: Id = parse(arguments)?;
-            json!({"connection":connections::desktop_connection_refresh(app.state(),input.id,Some(input.expected_revision)).await.map_err(source_error)?})
+            json!({
+                "connection": connections::desktop_connection_refresh(
+                    app.state(),
+                    input.id,
+                    Some(input.expected_revision)
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_remove" => {
             let input: Id = parse(arguments)?;
-            json!({"connections":connections::desktop_connection_remove(app.state(),input.id,Some(input.expected_revision)).await.map_err(source_error)?})
+            json!({
+                "connections": connections::desktop_connection_remove(
+                    app.state(),
+                    input.id,
+                    Some(input.expected_revision)
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_sign_in" => {
             let input: Provider = parse(arguments)?;
-            json!({"status":setup::desktop_provider_sign_in(app.state(),input.provider).await.map_err(source_error)?})
+            json!({
+                "status": setup::desktop_provider_sign_in(app.state(), input.provider)
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_sign_in_status" => {
             let _: Empty = parse(arguments)?;
-            json!({"status":setup::desktop_setup_status(app.state()).await.map_err(source_error)?})
+            json!({
+                "status": setup::desktop_setup_status(app.state())
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "model_source_sign_in_cancel" => {
             let _: Empty = parse(arguments)?;
-            json!({"status":setup::desktop_provider_sign_in_cancel(app.state()).await.map_err(source_error)?})
+            json!({
+                "status": setup::desktop_provider_sign_in_cancel(app.state())
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "mcp_server_list" => {
             let _: Empty = parse(arguments)?;
-            json!({"connections":mcp::desktop_mcp_connections_list(app.state()).await.map_err(source_error)?})
+            json!({
+                "connections": mcp::desktop_mcp_connections_list(app.state())
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "mcp_server_discover" => {
             let input: McpDiscover = parse(arguments)?;
-            json!({"items":mcp::desktop_mcp_tools(app.state(),input.url,input.token,input.id,input.clear_token).await.map_err(source_error)?})
+            json!({
+                "items": mcp::desktop_mcp_tools(
+                    app.state(),
+                    input.url,
+                    input.token,
+                    input.id,
+                    input.clear_token
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "mcp_server_save" => {
             let input: McpSave = parse(arguments)?;
             if input.id.is_some() && input.expected_revision.is_none() {
                 return Err(ControlError::invalid());
             }
-            json!({"connection":mcp::desktop_mcp_connection_save(app.state(),input.id,input.title,input.url,input.token,input.clear_token,input.allowed_tools,input.expected_revision).await.map_err(source_error)?})
+            json!({
+                "connection": mcp::desktop_mcp_connection_save(
+                    app.state(),
+                    input.id,
+                    input.title,
+                    input.url,
+                    input.token,
+                    input.clear_token,
+                    input.allowed_tools,
+                    input.expected_revision
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "mcp_server_refresh" => {
             let input: Id = parse(arguments)?;
-            json!({"connection":mcp::desktop_mcp_connection_refresh(app.state(),input.id,Some(input.expected_revision)).await.map_err(source_error)?})
+            json!({
+                "connection": mcp::desktop_mcp_connection_refresh(
+                    app.state(),
+                    input.id,
+                    Some(input.expected_revision)
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         "mcp_server_remove" => {
             let input: Id = parse(arguments)?;
-            json!({"connections":mcp::desktop_mcp_connection_remove(app.state(),input.id,Some(input.expected_revision)).await.map_err(source_error)?})
+            json!({
+                "connections": mcp::desktop_mcp_connection_remove(
+                    app.state(),
+                    input.id,
+                    Some(input.expected_revision)
+                )
+                    .await
+                    .map_err(source_error)?
+            })
         }
         _ => return bridge.forward(app, operation, arguments).await,
     };
@@ -833,6 +975,7 @@ async fn dispatch<R: tauri::Runtime>(
 pub fn desktop_control_status(control: State<'_, DesktopControl>) -> ControlStatus {
     control.status()
 }
+
 #[tauri::command]
 pub fn desktop_control_ready(control: State<'_, DesktopControl>, ready: bool) {
     if let Some(bridge) = &control.bridge {
@@ -844,6 +987,7 @@ pub fn desktop_control_ready(control: State<'_, DesktopControl>, ready: bool) {
         }
     }
 }
+
 #[tauri::command]
 pub fn desktop_control_reply(
     control: State<'_, DesktopControl>,
@@ -881,6 +1025,7 @@ mod tests {
             self.bridge.shutdown();
         }
     }
+
     fn harness(dispatch: Dispatch) -> Harness {
         let root = TempDir::new();
         let bridge = start(
@@ -894,6 +1039,7 @@ mod tests {
             _root: root,
         }
     }
+
     fn client() -> reqwest::Client {
         reqwest::Client::builder()
             .no_proxy()
@@ -901,6 +1047,7 @@ mod tests {
             .build()
             .unwrap()
     }
+
     async fn call(bridge: &Bridge, operation: &str, arguments: Value, id: Option<&str>) -> Value {
         let mut request = client()
             .post(format!("{}/v1/tools/{operation}", bridge.endpoint))
@@ -911,6 +1058,7 @@ mod tests {
         }
         request.send().await.unwrap().json().await.unwrap()
     }
+
     fn simple_dispatch() -> Dispatch {
         Arc::new(|_, operation, _| Box::pin(async move { Ok(json!({"operation":operation})) }))
     }
@@ -1128,7 +1276,14 @@ mod tests {
         let body = r#"{"source":"fixture-source"}"#;
         let mut socket =
             TcpStream::connect(harness.bridge.endpoint.strip_prefix("http://").unwrap()).unwrap();
-        write!(socket,"POST /v1/tools/pipeline_create HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nX-Knotra-Request-Id: dropped_request_123\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",harness.bridge.endpoint.strip_prefix("http://").unwrap(),harness.bridge.token,body.len()).unwrap();
+        write!(
+            socket,
+            "POST /v1/tools/pipeline_create HTTP/1.1\r\nHost: {}\r\nAuthorization: Bearer {}\r\nX-Knotra-Request-Id: dropped_request_123\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            harness.bridge.endpoint.strip_prefix("http://").unwrap(),
+            harness.bridge.token,
+            body.len()
+        )
+        .unwrap();
         let until = std::time::Instant::now() + Duration::from_secs(2);
         while count.load(Ordering::SeqCst) == 0 && std::time::Instant::now() < until {
             std::thread::sleep(Duration::from_millis(5));
@@ -1188,18 +1343,53 @@ mod tests {
         let workspace = Arc::new(Mutex::new(None::<Value>));
         let state = workspace.clone();
         let replies = app.handle().clone();
-        app.listen("knotra-control-request",move |event| {
-            let request:Value=serde_json::from_str(event.payload()).unwrap(); let arguments=&request["arguments"];
-            let revision=|value:&Value|format!("{:x}",Sha256::digest(serde_json::to_vec(value).unwrap()));
-            let outcome=match request["operation"].as_str().unwrap() {
-                "app_status"=>Ok(json!({"activeId":state.lock().unwrap().as_ref().map(|workspace|workspace["id"].clone())})),
-                "pipeline_create"=>{ let value=json!({"id":"fixture-workspace","source":arguments["source"],"savedSource":arguments["source"],"entrypoint":"pipeline.yaml","files":[],"updatedAt":"2026-10-21T00:00:00Z"}); *state.lock().unwrap()=Some(value.clone()); Ok(json!({"workspace":value,"revision":revision(&value)})) },
-                "pipeline_get"=>{ let value=state.lock().unwrap().clone().unwrap(); Ok(json!({"workspace":value,"revision":revision(&value)})) },
-                "pipeline_update"=>{ let mut value=state.lock().unwrap(); let workspace=value.as_mut().unwrap(); if arguments["expectedRevision"]!=revision(workspace) { Err(ControlError::new("conflict","Fixture revision changed.")) } else { workspace["source"]=arguments["source"].clone(); Ok(json!({"workspace":workspace,"revision":revision(workspace)})) } },
-                _=>Err(ControlError::invalid()),
+        app.listen("knotra-control-request", move |event| {
+            let request: Value = serde_json::from_str(event.payload()).unwrap();
+            let arguments = &request["arguments"];
+            let revision = |value: &Value| format!("{:x}", Sha256::digest(serde_json::to_vec(value).unwrap()));
+
+            let outcome = match request["operation"].as_str().unwrap() {
+                "app_status" => Ok(json!({"activeId":state.lock().unwrap().as_ref().map(|workspace|workspace["id"].clone())})),
+                "pipeline_create" => {
+                    let value = json!({
+                        "id":"fixture-workspace",
+                        "source":arguments["source"],
+                        "savedSource":arguments["source"],
+                        "entrypoint":"pipeline.yaml",
+                        "files":[],
+                        "updatedAt":"2026-10-21T00:00:00Z"
+                    });
+                    *state.lock().unwrap() = Some(value.clone());
+                    Ok(json!({"workspace":value,"revision":revision(&value)}))
+                },
+                "pipeline_get" => {
+                    let value = state.lock().unwrap().clone().unwrap();
+                    Ok(json!({"workspace":value,"revision":revision(&value)}))
+                },
+                "pipeline_update" => {
+                    let mut value = state.lock().unwrap();
+                    let workspace = value.as_mut().unwrap();
+                    if arguments["expectedRevision"] != revision(workspace) {
+                        Err(ControlError::new("conflict", "Fixture revision changed."))
+                    } else {
+                        workspace["source"] = arguments["source"].clone();
+                        Ok(json!({"workspace":workspace,"revision":revision(workspace)}))
+                    }
+                },
+                _ => Err(ControlError::invalid()),
             };
-            let (result,error)=match outcome { Ok(result)=>(Some(result),None),Err(error)=>(None,Some(error)) };
-            assert!(desktop_control_reply(replies.state(),request["id"].as_str().unwrap().into(),result,error).unwrap());
+
+            let (result, error) = match outcome {
+                Ok(result) => (Some(result), None),
+                Err(error) => (None, Some(error))
+            };
+            assert!(desktop_control_reply(
+                replies.state(),
+                request["id"].as_str().unwrap().into(),
+                result,
+                error
+            )
+            .unwrap());
         });
         desktop_control_ready(app.state(), true);
         (app, bridge, workspace)

@@ -9,6 +9,7 @@ import {
 import type { EngineEvent, EngineInstance, EngineRun } from '../src/lib/engine/types';
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 9, 4, 12, 0, seconds)).toISOString();
+
 function run(id = 'run'): EngineRun {
   return {
     id,
@@ -46,6 +47,7 @@ function run(id = 'run'): EngineRun {
     ],
   };
 }
+
 function event(id: string, status: string, extra: Partial<EngineEvent> = {}): EngineEvent {
   return {
     id,
@@ -82,6 +84,7 @@ describe('historical state reconstruction', () => {
       availableActions: [],
       diagnostics: [],
     });
+
     const first = replayRun(latest, events, 1);
     expect(first.instances[0]).toMatchObject({
       nodeId: 'writer',
@@ -97,6 +100,7 @@ describe('historical state reconstruction', () => {
     });
     expect(latest.instances[0].outputs?.values.answer).toBe('FUTURE RESULT');
   });
+
   it('reconstructs nested instances and root output only from saved events', () => {
     const events = [
       event('1', 'running', { type: 'run', instanceId: undefined }),
@@ -130,6 +134,7 @@ describe('historical state reconstruction', () => {
     });
     expect(replayRun(run(), events, 3).outputs).toEqual({ answer: 7 });
   });
+
   it('keeps the beginning of history, ignores model deltas and orders large cursor IDs without numeric coercion', () => {
     const first = event('9007199254740993', 'running', { at: at(1) }),
       second = event('9007199254740994', 'succeeded', { at: at(0) });
@@ -139,6 +144,7 @@ describe('historical state reconstruction', () => {
         [second, first, event('3', 'delta', { type: 'model.delta' })],
       ).events.map((item) => item.id),
     ).toEqual([first.id, second.id]);
+
     const bounded = appendReplayEvents([first], [second], 10000, 1);
     expect(bounded.limited).toBe(true);
     expect(bounded.events).toEqual([first]);
@@ -150,6 +156,7 @@ describe('run comparison', () => {
   it('matches nested iterations by lineage across different runtime IDs', () => {
     const before = run('before'),
       after = run('after');
+
     function nodes(prefix: string): EngineInstance[] {
       return [
         {
@@ -195,6 +202,7 @@ describe('run comparison', () => {
       afterDuration: 3000,
     });
   });
+
   it('does not pair ambiguous legacy repeated node IDs or recurse forever on corrupt parents', () => {
     const before = run('before'),
       after = run('after');
@@ -210,6 +218,7 @@ describe('run comparison', () => {
     before.instances[1].parentInstanceId = 'a';
     expect([...instanceAddresses(before).values()].every((item) => item.ambiguous)).toBe(true);
   });
+
   it('propagates ambiguous parent identities to descendants even when child names differ', () => {
     const before = run('before'),
       after = run('after');

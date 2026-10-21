@@ -15,6 +15,7 @@ export function ArtifactCard({
   const { t, locale } = useI18n();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
   return (
     <div className="execution-artifact flex items-center gap-2.25 mb-2 border border-solid border-line rounded-[7px] p-2.5">
       <FileBox size={16} />

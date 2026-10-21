@@ -4,6 +4,7 @@ use std::{
     net::TcpListener,
 };
 use tauri::ipc::InvokeResponseBody;
+
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -21,10 +22,23 @@ fn instance_pages_validate_projections_without_caching_them() {
             (200, "application/json", serde_json::to_vec(&response).unwrap())
         });
         let store = store::Store::open(std::path::Path::new(":memory:")).unwrap();
-        let call = Call::Instances { run_id: "r1".into(), cursor: Some("n1".into()) };
-        assert_eq!(execute(&store, &session, &call).await.unwrap()["items"][0]["id"], "n2");
-        assert!(store.snapshot("fixture").unwrap()["cache"].as_object().unwrap().is_empty());
-        assert_eq!(execute(&store, &session, &call).await.unwrap_err().code, "protocol");
+        let call = Call::Instances {
+            run_id: "r1".into(),
+            cursor: Some("n1".into())
+        };
+
+        assert_eq!(
+            execute(&store, &session, &call).await.unwrap()["items"][0]["id"],
+            "n2"
+        );
+        assert!(store.snapshot("fixture").unwrap()["cache"]
+            .as_object()
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            execute(&store, &session, &call).await.unwrap_err().code,
+            "protocol"
+        );
         task.join().unwrap();
     });
 }
@@ -356,12 +370,23 @@ fn instance_history_is_scoped_paginated_and_not_added_to_the_event_cursor() {
             }).to_string().into_bytes())
         });
         let store = store::Store::open(std::path::Path::new(":memory:")).unwrap();
-        let call = Call::History { run_id:"r1".into(), instance_id:Some("n/a".into()), cursor:Some("42".into()) };
+        let call = Call::History {
+            run_id: "r1".into(),
+            instance_id: Some("n/a".into()),
+            cursor: Some("42".into())
+        };
+
         let page = execute(&store, &session, &call).await.unwrap();
         assert_eq!(page["items"][0]["id"], "43");
         assert!(store.cursor("fixture", "r1").unwrap().is_none());
-        assert!(store.snapshot("fixture").unwrap()["cache"].as_object().unwrap().is_empty());
-        assert_eq!(execute(&store, &session, &call).await.unwrap_err().code, "protocol");
+        assert!(store.snapshot("fixture").unwrap()["cache"]
+            .as_object()
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            execute(&store, &session, &call).await.unwrap_err().code,
+            "protocol"
+        );
         task.join().unwrap();
     });
 }
@@ -490,20 +515,67 @@ fn javascript_previews_keep_refresh_and_admission_receipts_readable() {
                     json!({"run":run.clone()})
                 }
             };
-            (if index == 3 { 201 } else { 200 }, "application/json", serde_json::to_vec(&response).unwrap())
+            (
+                if index == 3 { 201 } else { 200 },
+                "application/json",
+                serde_json::to_vec(&response).unwrap()
+            )
         });
         let store = store::Store::open(std::path::Path::new(":memory:")).unwrap();
-        assert_eq!(execute(&store, &session, &Call::Runs { cursor:None }).await.unwrap()["items"][0], expected);
-        assert_eq!(execute(&store, &session, &Call::Run { run_id:"r1".into() }).await.unwrap()["run"], expected);
-        let requests = execute(&store, &session, &Call::Requests { cursor:None }).await.unwrap();
+
+        assert_eq!(
+            execute(&store, &session, &Call::Runs { cursor: None })
+                .await
+                .unwrap()["items"][0],
+            expected
+        );
+        assert_eq!(
+            execute(&store, &session, &Call::Run { run_id: "r1".into() })
+                .await
+                .unwrap()["run"],
+            expected
+        );
+
+        let requests = execute(&store, &session, &Call::Requests { cursor: None })
+            .await
+            .unwrap();
         assert!(requests["items"][0]["responseSchema"].is_null());
-        assert_eq!(requests["items"][0]["responseSchemaJSON"], "{\"const\":9223372036854775807}");
-        let start = Call::Start { definition_id:"d1".into(), profile:"local".into(), inputs:json!({}), artifacts:json!({}), operation_id:"start-int64".into() };
-        assert_eq!(execute(&store, &session, &start).await.unwrap()["run"], expected);
-        assert_eq!(execute(&store, &session, &start).await.unwrap()["run"], expected);
-        let unsafe_start = Call::Start { definition_id:"d1".into(), profile:"local".into(), inputs:json!({"exact":9007199254740993u64}), artifacts:json!({}), operation_id:"unsafe-start".into() };
-        assert_eq!(execute(&store, &session, &unsafe_start).await.unwrap_err().code, "precision");
-        assert!(store.snapshot("fixture").unwrap()["pending"].as_array().unwrap().is_empty());
+        assert_eq!(
+            requests["items"][0]["responseSchemaJSON"],
+            "{\"const\":9223372036854775807}"
+        );
+
+        let start = Call::Start {
+            definition_id: "d1".into(),
+            profile: "local".into(),
+            inputs: json!({}),
+            artifacts: json!({}),
+            operation_id: "start-int64".into()
+        };
+        assert_eq!(
+            execute(&store, &session, &start).await.unwrap()["run"],
+            expected
+        );
+        assert_eq!(
+            execute(&store, &session, &start).await.unwrap()["run"],
+            expected
+        );
+
+        let unsafe_start = Call::Start {
+            definition_id: "d1".into(),
+            profile: "local".into(),
+            inputs: json!({"exact":9007199254740993u64}),
+            artifacts: json!({}),
+            operation_id: "unsafe-start".into()
+        };
+        assert_eq!(
+            execute(&store, &session, &unsafe_start).await.unwrap_err().code,
+            "precision"
+        );
+        assert!(store.snapshot("fixture").unwrap()["pending"]
+            .as_array()
+            .unwrap()
+            .is_empty());
         task.join().unwrap();
     });
 }

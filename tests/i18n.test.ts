@@ -60,6 +60,7 @@ describe('interface language contract', () => {
     const placeholders = (text: string) =>
       [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
     expect(Object.keys(russianMessages).sort()).toEqual(Object.keys(englishMessages).sort());
+
     const mismatches = Object.entries(englishMessages)
       .filter(
         ([key, english]) =>
@@ -67,6 +68,7 @@ describe('interface language contract', () => {
           JSON.stringify(placeholders(russianMessages[key])),
       )
       .map(([key]) => key);
+
     expect(mismatches).toEqual([]);
   });
 
@@ -100,6 +102,7 @@ describe('interface language contract', () => {
     const root = resolve(dirname(fileURLToPath(import.meta.url)), '../src');
     const protocolTokens = new Set(['JSON', 'YAML', 'MCP', 'SHA-256', 'Knotra']);
     const missing = new Set<string>();
+
     function strings(expression: ts.Expression): string[] {
       if (ts.isStringLiteralLike(expression)) return [expression.text];
       if (ts.isParenthesizedExpression(expression)) return strings(expression.expression);
@@ -107,6 +110,7 @@ describe('interface language contract', () => {
         return [...strings(expression.whenTrue), ...strings(expression.whenFalse)];
       return [];
     }
+
     function walk(directory: string) {
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
         const path = join(directory, entry.name);
@@ -115,6 +119,7 @@ describe('interface language contract', () => {
           continue;
         }
         if (!/\.tsx?$/.test(entry.name)) continue;
+
         const source = ts.createSourceFile(
           path,
           readFileSync(path, 'utf8'),
@@ -122,6 +127,7 @@ describe('interface language contract', () => {
           true,
           entry.name.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
         );
+
         function visit(node: ts.Node) {
           if (
             ts.isCallExpression(node) &&

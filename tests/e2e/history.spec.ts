@@ -173,6 +173,7 @@ test.beforeEach(async ({ page }) => {
       );
       return;
     }
+
     const url = new URL(request.url!, endpoint);
     if (url.pathname === '/v1/info')
       return json(response, {
@@ -204,6 +205,7 @@ test.beforeEach(async ({ page }) => {
             event.instanceId === url.searchParams.get('instanceId'),
         )
         .slice(0, 100);
+
       return json(response, { items, nextCursor: items.length === 100 ? items.at(-1)!.id : null });
     }
     if (url.pathname === '/v1/runs/current-run/events') {
@@ -216,6 +218,7 @@ test.beforeEach(async ({ page }) => {
       streams.push(response);
       return;
     }
+
     return json(response, { code: 'NOT_FOUND', message: url.pathname, diagnostics: [] }, 404);
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -258,6 +261,7 @@ test('replays paginated history and hides future outputs when rewound', async ({
   await page.locator('.history-graph .react-flow__node[data-id="writer"]').click();
   const inspector = page.getByRole('complementary', { name: 'Historical node details' });
   await expect(inspector).toContainText('FINAL ANSWER');
+
   const position = page.getByRole('slider', { name: 'Recorded execution position' });
   await position.focus();
   await position.press('Home');
@@ -292,18 +296,21 @@ test('compares saved prompts, outputs and node statuses without issuing commands
   await expect(page.locator('.history-comparison-heading')).toContainText(
     'Earlier history fixture',
   );
+
   const prompts = page
     .locator('.history-change-section')
     .filter({ hasText: 'Prompts and instructions' });
   await prompts.locator('.history-value-change > summary').click();
   await expect(prompts).toContainText('Write a short answer.');
   await expect(prompts).toContainText('Write a detailed answer.');
+
   const outputs = page
     .locator('.history-change-section')
     .filter({ has: page.locator(':scope > summary').filter({ hasText: /^Outputs/ }) });
   await outputs.locator('.history-value-change > summary').click();
   await expect(outputs).toContainText('EARLIER ANSWER');
   await expect(outputs).toContainText('FINAL ANSWER');
+
   const node = page.locator('.history-node-row').filter({ hasText: 'writer' });
   await expect(node).toContainText('Failed');
   await expect(node).toContainText('Completed');
@@ -380,6 +387,7 @@ test('loads baseline instance pages explicitly and ignores a stale selection res
     name: 'Load more baseline instances',
     exact: true,
   });
+
   await expect(baselineButton).toBeVisible();
   expect(requests).toEqual([]);
   await expect(page.locator('.history-node-row')).toHaveCount(0);

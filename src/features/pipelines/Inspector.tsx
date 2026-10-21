@@ -55,6 +55,7 @@ function TextField({
       if (event.target.value !== value) onSave(event.target.value);
     },
   };
+
   return (
     <label
       className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6"
@@ -93,6 +94,7 @@ function NumberField({
 }) {
   const { message } = useI18n();
   const [error, setError] = useState('');
+
   return (
     <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
       {label}
@@ -147,9 +149,11 @@ function PromptField({
   const { t } = useI18n();
   const remembered = useRef<{ text?: string; file?: string }>({});
   const [expanded, setExpanded] = useState(!!value.file);
+
   useEffect(() => {
     if (value.file) setExpanded(true);
   }, [value.file]);
+
   return (
     <>
       {!value.file ? (
@@ -228,6 +232,7 @@ function ToolArgumentValues({
   const { t } = useI18n();
   const serialized = JSON.stringify(value ?? {}, null, 2);
   const [draft, setDraft] = useState(serialized);
+
   useEffect(() => setDraft(serialized), [serialized]);
   const properties = Object.fromEntries(
     Object.entries(record(record(schema).properties)).map(([name, property]) => [
@@ -235,6 +240,7 @@ function ToolArgumentValues({
       { ...record(property), title: record(property).title || name.replace(/[_-]+/g, ' ') },
     ]),
   );
+
   return (
     <div className="mb-6">
       <HumanResponseForm
@@ -282,6 +288,7 @@ function ToolArgumentsField({
           (name) => !Object.hasOwn(record(argumentSchema.properties), name),
         )
       : [];
+
   return (
     <>
       <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
@@ -433,6 +440,7 @@ export default function Inspector({
 }) {
   const { t } = useI18n();
   const [tab, setTab] = useState<'setup' | 'ports'>('setup');
+
   useEffect(() => {
     if (showPorts) setTab('ports');
   }, [showPorts]);
@@ -511,6 +519,7 @@ export default function Inspector({
       </button>
     </div>
   );
+
   return (
     <aside className="inspector setup-inspector w-85 [&_.field_small]:text-[11px]! [&_.field_small]:leading-relaxed! shrink-0 overflow-hidden border-l border-solid border-l-line bg-surface flex flex-col">
       <header className="inspector-header flex items-center justify-between pt-4 pb-2 px-4.5">
@@ -1104,6 +1113,7 @@ function NodeSandbox({
     if (id === 'python_box') return t('resources.pythonSandbox');
     return id.replace(/[_-]+/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
   };
+
   return (
     <section data-tour="node-sandbox" className="mb-6 flex min-w-0 flex-col gap-4">
       <label className="field flex flex-col gap-2.5 text-[11px] leading-relaxed text-muted">
@@ -1218,6 +1228,7 @@ function NodeModel({
     if (item.kind === 'model' && item.status === 'available' && !available.has(item.id))
       available.set(item.id, item.title);
   const unavailableModel = !!value && !models.some((item) => item.id === value);
+
   return (
     <section data-tour="node-model" className="mb-6 flex flex-col gap-4">
       <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5]">

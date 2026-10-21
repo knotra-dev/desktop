@@ -23,6 +23,7 @@ export function DataBlock({
         : '',
     [expanded, value],
   );
+
   return (
     <section className="execution-data-block mt-0 mb-3 min-w-0 mx-0">
       <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>

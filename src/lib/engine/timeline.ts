@@ -76,6 +76,7 @@ export function timelineRows(run: EngineRun, incoming: EngineEvent[]): TimelineR
     { ...run, instances: [...instances.values()] },
     packageGraphs(run),
   );
+
   return activities(events).map((activity) => {
     const instance = activity.instanceId ? instances.get(activity.instanceId) : undefined;
     const context: TimelineRow['context'] = [];
@@ -84,6 +85,7 @@ export function timelineRows(run: EngineRun, incoming: EngineEvent[]): TimelineR
     while (child?.parentInstanceId && !visited.has(child.parentInstanceId)) {
       const parent = instances.get(child.parentInstanceId);
       if (!parent) break;
+
       visited.add(parent.id);
       context.unshift({ nodeId: parent.nodeId, iterationIndex: child.iterationIndex });
       child = parent;
@@ -97,6 +99,7 @@ export function timelineRows(run: EngineRun, incoming: EngineEvent[]): TimelineR
         })),
       );
     }
+
     return {
       activity,
       instance,

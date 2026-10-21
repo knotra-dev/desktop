@@ -102,6 +102,7 @@ export default function WorkspaceView({
         ? 'research'
         : (Object.keys(validation.pipeline?.spec.nodes ?? {})[0] ?? ''),
   );
+
   useEffect(() => {
     if (nodeRequested) {
       const path = nodeRequested.split('/');
@@ -111,13 +112,17 @@ export default function WorkspaceView({
       setSelected(path.at(-1) ?? '');
     }
   }, [nodeRequested]);
+
   const [requestedScope, setScope] = useState<string[]>([]);
+
   useEffect(() => {
     if (!resourcesRequested) return;
+
     setView(resourcesRequested === 'secrets' ? 'source' : 'graph');
     setSelected('');
     setScope([]);
   }, [resourcesRequested]);
+
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string>();
   const [removeNode, setRemoveNode] = useState(false);
@@ -134,6 +139,7 @@ export default function WorkspaceView({
     }
     return { graph, scope };
   }, [pipeline, requestedScope]);
+
   const importedGraphs = useMemo(() => {
     const graphs = new Map<string, Graph>();
     for (const file of workspace?.files ?? []) {
@@ -147,12 +153,16 @@ export default function WorkspaceView({
     }
     return graphs;
   }, [workspace?.files]);
+
   const node = selected ? graph?.nodes[selected] : undefined;
   const scopeKey = scope.join('/');
+
   useEffect(() => {
     if (!nodeRequested || !nodeResourceRequested) return;
+
     const path = nodeRequested.split('/');
     if (selected !== path.at(-1) || scopeKey !== path.slice(0, -1).join('/')) return;
+
     const target = document.querySelector(
       nodeResourceRequested === 'models'
         ? '[data-tour="node-model"]'
@@ -163,6 +173,7 @@ export default function WorkspaceView({
     target?.scrollIntoView({ block: 'start' });
     target?.querySelector<HTMLElement>('select, input, button')?.focus({ preventScroll: true });
   }, [nodeRequested, nodeResourceRequested, selected, scopeKey]);
+
   const resourceLabels = useMemo(
     () =>
       Object.fromEntries(
@@ -196,8 +207,10 @@ export default function WorkspaceView({
     [graph, pipeline, modelConnections, engineResources, t],
   );
   const knownNodes = useRef({ scope: scopeKey, ids: new Set(Object.keys(graph?.nodes ?? {})) });
+
   useEffect(() => {
     if (!graph) return;
+
     const added =
       knownNodes.current.scope === scopeKey
         ? Object.keys(graph.nodes).find((id) => !knownNodes.current.ids.has(id))
@@ -208,9 +221,12 @@ export default function WorkspaceView({
       setShowPorts(false);
     } else if (selected && !graph.nodes[selected]) setSelected(Object.keys(graph.nodes)[0] ?? '');
   }, [graph, selected, scopeKey]);
+
   const errors = validation.diagnostics.filter((d) => d.severity === 'error');
+
   function mutate(action: (document: ReturnType<typeof parseDocument>, path: string[]) => void) {
     if (!workspace || !pipeline) return;
+
     const document = parseDocument(workspace.source);
     const path = ['spec'];
     let g: Graph = pipeline.spec;
@@ -218,6 +234,7 @@ export default function WorkspaceView({
       path.push('nodes', id, g.nodes[id].type, 'body');
       g = record(record(g.nodes[id][g.nodes[id].type]).body) as unknown as Graph;
     }
+
     action(document, path);
     const source = document.toString({ lineWidth: 110 });
     const check = validatePipeline(source, workspace.files, workspace.entrypoint);
@@ -232,15 +249,19 @@ export default function WorkspaceView({
       );
       return;
     }
+
     onChange(source);
   }
+
   function connect(connection: PortConnection) {
     if (!graph) return;
+
     const error = connectionError(graph, connection, importedGraphs);
     if (error) {
       onNotify(message(error));
       return;
     }
+
     mutate((doc, path) =>
       doc.setIn([...path, 'nodes', connection.target, 'inputs', connection.targetPort, 'bind'], {
         from: `nodes.${connection.source}.outputs.${connection.sourcePort}`,
@@ -255,6 +276,7 @@ export default function WorkspaceView({
       }),
     );
   }
+
   function openBody(id: string) {
     const n = graph?.nodes[id];
     if (n && ['foreach', 'loop'].includes(n.type)) {
@@ -286,6 +308,7 @@ export default function WorkspaceView({
     } catch {
       /* Binary file: show metadata. */
     }
+
   return (
     <div className="workspace-view flex flex-col h-full min-h-112.5">
       <header className="workspace-header flex shrink-0 items-center justify-between gap-6 px-6 py-3">
@@ -862,8 +885,10 @@ function PipelineActions({ onExport, onDelete }: { onExport: () => void; onDelet
   const container = useRef<HTMLDivElement>(null);
   const initialItem = useRef('first');
   const [open, setOpen] = useState(false);
+
   useEffect(() => {
     if (!open) return;
+
     const items = container.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
     items?.[initialItem.current === 'last' ? items.length - 1 : 0]?.focus();
     const outside = (event: Event) => {
@@ -877,10 +902,12 @@ function PipelineActions({ onExport, onDelete }: { onExport: () => void; onDelet
       document.removeEventListener('focusin', outside);
     };
   }, [open]);
+
   function close() {
     setOpen(false);
     trigger.current?.focus();
   }
+
   return (
     <div ref={container} className="relative">
       <button

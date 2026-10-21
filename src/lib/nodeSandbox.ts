@@ -11,16 +11,19 @@ export function nodeSandboxSelection(
   for (const id of scope) {
     const node = graph.nodes[id];
     if (!node || !['foreach', 'loop'].includes(node.type)) return;
+
     graph = record(record(node[node.type]).body) as unknown as Graph;
   }
   const node = graph.nodes[nodeId];
   if (!node || !['agent', 'code'].includes(node.type)) return;
+
   const currentAlias = node.sandbox ?? '';
   const sandboxes = pipeline.spec.sandboxes ?? {};
   const current = sandboxes[currentAlias] ?? {};
   if (current.profile === profile) return;
 
   let references = 0;
+
   function count(graph: Graph) {
     for (const node of Object.values(graph.nodes)) {
       if (node.sandbox === currentAlias) references++;
@@ -42,6 +45,7 @@ export function nodeSandboxSelection(
     let suffix = 2;
     while (sandboxes[alias]) alias = `${stem.slice(0, 58)}_${suffix++}`;
   }
+
   return { alias, resource: { ...current, profile } };
 }
 

@@ -87,6 +87,7 @@ describe('MCP pipeline control', () => {
         })),
       ),
     });
+
     const read = await applyPipelineControl(value, 'pipeline_get', { id: 'first' });
     expect(read.result).toEqual({
       workspace: value.workspaces[0],
@@ -102,8 +103,10 @@ describe('MCP pipeline control', () => {
       source: source('Created through MCP'),
       activate: false,
     });
+
     expect(changed.state!.workspaces).toHaveLength(3);
     expect(changed.state!.workspaces.slice(0, 2)).toEqual(value.workspaces);
+
     const added = changed.state!.workspaces[2];
     expect(added.source).toBe(added.savedSource);
     expect(added.entrypoint).toBe('pipeline.yaml');
@@ -169,6 +172,7 @@ describe('MCP pipeline control', () => {
       ...args,
       allowDirty: true,
     });
+
     expect(changed.state!.workspaces[0].source).toBe(args.source);
     expect(changed.state!.workspaces[1]).toEqual(value.workspaces[1]);
     expect(value).toEqual(before);
@@ -180,6 +184,7 @@ describe('MCP pipeline control', () => {
       id: 'first',
       expectedRevision: await workspaceRevision(value.workspaces[0]),
     });
+
     expect(changed.result).toEqual({ deleted: 'first' });
     expect(changed.state!.workspaces).toEqual([value.workspaces[1]]);
     expect(changed.state!.activeId).toBe('unrelated');

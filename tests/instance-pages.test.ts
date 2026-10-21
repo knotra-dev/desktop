@@ -19,8 +19,10 @@ it('reads bounded instance pages with an encoded cursor without caching the coll
           version: '1',
           capabilities: [],
         });
+
       expect(url.pathname).toBe('/v1/runs/run%2F1/instances');
       expect(url.searchParams.get('cursor')).toBe('map[1]/child');
+
       return Response.json({
         items: [
           {
@@ -41,6 +43,7 @@ it('reads bounded instance pages with an encoded cursor without caching the coll
       runId: 'run/1',
       cursor: 'map[1]/child',
     });
+
     expect(page.items[0].id).toBe('map[2]/child');
     expect((await engineCache()).cache).toEqual({});
     invalid = true;

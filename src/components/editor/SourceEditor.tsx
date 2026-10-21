@@ -61,6 +61,7 @@ export default function SourceEditor({
   const initialize = useEffectEvent((isReadOnly: boolean) => {
     const parent = container.current;
     if (!parent) return;
+
     const view = new EditorView({
       doc: source,
       parent,
@@ -84,17 +85,21 @@ export default function SourceEditor({
         themeCompartment.current.of(createEditorTheme(theme)),
       ],
     });
+
     editor.current = view;
     return view;
   });
+
   useEffect(() => {
     const view = initialize(readOnly);
     if (!view) return;
+
     return () => {
       view.destroy();
       editor.current = null;
     };
   }, [readOnly]);
+
   useEffect(() => {
     editor.current?.dispatch({
       effects: languageCompartment.current.reconfigure([
@@ -108,15 +113,18 @@ export default function SourceEditor({
       ]),
     });
   }, [label, t, readOnly]);
+
   useEffect(() => {
     editor.current?.dispatch({
       effects: themeCompartment.current.reconfigure(createEditorTheme(theme)),
     });
   }, [theme]);
+
   useEffect(() => {
     const view = editor.current;
     if (view && view.state.doc.toString() !== source)
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: source } });
   }, [source]);
+
   return <div className="source-editor h-full min-h-0 flex-1 overflow-hidden" ref={container} />;
 }

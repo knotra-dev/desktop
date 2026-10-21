@@ -17,6 +17,7 @@ const root: Graph = {
   nodes: { batches: { type: 'foreach', foreach: { body: leaf } }, summarize: { type: 'llm' } },
   outputs: {},
 };
+
 function run(instances: EngineInstance[] = []): EngineRun {
   return {
     id: 'run',
@@ -36,6 +37,7 @@ function run(instances: EngineInstance[] = []): EngineRun {
     availableActions: [],
   };
 }
+
 function event(
   id: string,
   type: string,
@@ -100,6 +102,7 @@ describe('runtime graph identity', () => {
         ['child.yaml', leaf],
       ]),
     );
+
     expect(groups).toHaveLength(4);
     expect(groups.map((group) => graphInstances(group).summarize.id)).toEqual([
       'root-summary',
@@ -115,6 +118,7 @@ describe('runtime graph identity', () => {
     ]);
     expect(graphStatuses(groups[0]).batches).toBe('pending');
   });
+
   it('does not attach a nested instance to a root node when its graph path is unavailable', () => {
     const groups = executionGraphs(
       run([
@@ -129,6 +133,7 @@ describe('runtime graph identity', () => {
       ]),
       new Map([['root.yaml', root]]),
     );
+
     expect(groups).toHaveLength(1);
     expect(graphInstances(groups[0])).toEqual({});
   });
@@ -142,6 +147,7 @@ describe('durable observation trajectories', () => {
       { ...event('3', 'model.delta', { text: 'one' }), instanceId: 'first' },
       { ...event('4', 'model.completed', { content: 'two' }), instanceId: 'second' },
     ]);
+
     expect(rows.map((row) => [row.instanceId, row.text, row.completed?.id])).toEqual([
       ['first', 'one', undefined],
       ['second', 'two', '4'],
@@ -159,6 +165,7 @@ describe('durable observation trajectories', () => {
       mergeEvents([event('10', 'x', {})], [event('9', 'x', {})]).map((item) => item.id),
     ).toEqual(['9', '10']);
   });
+
   it('reconstructs text, prefers completed content and separates attempts and operations', () => {
     const rows = activities([
       event('1', 'model.started', { step: 1, messages: [{ role: 'user', content: 'Prompt' }] }),
@@ -181,6 +188,7 @@ describe('durable observation trajectories', () => {
       event('8', 'model.delta', { step: 1, text: 'response' }, 'call', 'retry-attempt'),
       event('9', 'model.failed', { step: 1, error: 'Connection lost' }, 'call', 'retry-attempt'),
     ]);
+
     expect(rows).toHaveLength(3);
     expect(rows[0].text).toBe('Final content');
     expect(rows[0].started?.data).toHaveProperty('messages');
@@ -189,6 +197,7 @@ describe('durable observation trajectories', () => {
     expect(rows[2].completed?.type).toBe('model.failed');
     expect(rows[0].events).toHaveLength(2);
   });
+
   it('bounds memory even when providers send large data', () => {
     const values = Array.from({ length: 100 }, (_, i) =>
       event(String(i), 'model.started', { messages: [{ content: 'x'.repeat(64 * 1024) }] }),
@@ -203,6 +212,7 @@ describe('durable observation trajectories', () => {
       ),
     ).toHaveLength(5000);
   });
+
   it('does not invent timing for old snapshots and clamps clock skew', () => {
     expect(duration(undefined, Date.now())).toBeUndefined();
     expect(duration('bad', 'also bad')).toBeUndefined();
@@ -249,9 +259,11 @@ it('keeps longer streamed text when a completion preview is truncated and retain
     event('2', 'model.delta', { step: 1, text, observationIncomplete: true }),
     event('3', 'model.completed', { step: 1, content: text.slice(0, 16 * 1024), truncated: true }),
   ]);
+
   expect(rows[0].text).toBe(text);
   expect(rows[0].truncated).toBe(true);
   expect(rows[0].observationIncomplete).toBe(true);
+
   const interrupted = activities([event('1', 'model.delta', { text: 'partial', truncated: true })]);
   expect(interrupted[0].truncated).toBe(true);
 });

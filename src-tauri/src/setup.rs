@@ -125,6 +125,7 @@ impl DesktopSetup {
             .map(PathBuf::from)
             .unwrap_or_else(|| resources.join("runtime"));
         let cache = data.join("runtime");
+
         let migration_error = connections::migrate(&data.join("managed-engines")).err();
         Ok(Self {
             inner: Arc::new(Mutex::new(Inner {
@@ -185,6 +186,7 @@ impl DesktopSetup {
             });
         status.codex_available = self.tool("codex").is_some();
         status.claude_available = self.tool("claude").is_some();
+
         if let Ok(saved) = connections::load(&self.data) {
             status.configured = saved.engine_enabled;
             let pending = connections::pending(&saved);
@@ -249,6 +251,7 @@ impl DesktopSetup {
                 cmd.env(name, value);
             }
         }
+
         cmd.env("PATH", &self.search_path);
         cmd.stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -284,6 +287,7 @@ impl DesktopSetup {
         if let Some(child) = inner.engine.take() {
             children.push(child);
         }
+
         inner.status.phase = phase.into();
         inner.status.provider = Some(provider.into());
         inner.status.model = model.map(str::to_owned);
@@ -320,6 +324,7 @@ impl DesktopSetup {
         inner.login_cancel.notify_one();
         inner.login_generation += 1;
         inner.login_cancel = Arc::new(Notify::new());
+
         inner.status.source_phase = "signing_in".into();
         inner.status.source_provider = Some(provider.into());
         inner.status.source_error = None;
@@ -380,6 +385,7 @@ impl DesktopSetup {
                     let _ = start_background(setup.clone(), false, Some(0)).await;
                 }
             }
+
             loop {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 let action = {
@@ -428,6 +434,7 @@ impl DesktopSetup {
         if inner.generation != generation || !inner.requested_running {
             return;
         }
+
         inner.retry_attempts = inner.retry_attempts.saturating_add(1).min(5);
         inner.retry_at = Some(Instant::now() + Duration::from_secs(1 << inner.retry_attempts));
         inner.status.source_apply_error = Some(error.into());
@@ -610,6 +617,7 @@ fn stop_child(child: &mut Child) {
     if matches!(child.try_wait(), Ok(Some(_))) {
         return;
     }
+
     #[cfg(unix)]
     {
         // Only the tracked child PID receives SIGTERM; shared services are never stopped.
@@ -840,6 +848,7 @@ fn managed_directory(
             })
             .map(|source| source.id.clone());
     }
+
     let file = directory.join("desktop-ports.json");
     let mut ports: Ports = if file.exists() {
         serde_json::from_slice(
@@ -923,6 +932,7 @@ pub(super) async fn control_request(
     if !response.status().is_success() {
         return Err("The local engine could not prepare a safe configuration update.".into());
     }
+
     let bytes = response
         .bytes()
         .await
@@ -1031,6 +1041,7 @@ async fn apply_pending(
     if !pending {
         return Ok(());
     }
+
     let prepared = match control_request(endpoint, token, "prepare-restart").await {
         Ok(prepared) => prepared,
         Err(error) => {
@@ -1130,6 +1141,7 @@ fn start_engine(
     if already_running {
         return Ok(setup.snapshot());
     }
+
     let (applied, dir, ports, errors, held) = {
         let _lock = setup.sources.lock().unwrap();
         let mut saved = connections::load(&setup.data)?;
@@ -1171,6 +1183,7 @@ fn start_engine(
     if !missing.is_empty() {
         return Err(format!("Cannot restore the credentials used by unfinished workflows. Unlock the system credential store and retry. {}", missing.join(" ")));
     }
+
     let mut random = [0u8; 32];
     getrandom::fill(&mut random).map_err(|_| "Cannot create the local engine control token.")?;
     let control_token: String = random.iter().map(|byte| format!("{byte:02x}")).collect();
@@ -1178,6 +1191,7 @@ fn start_engine(
     if held {
         command.env("KNOTRA_DESKTOP_HOLD_ADMISSION", "1");
     }
+
     let claimed = {
         let mut inner = setup.inner.lock().unwrap();
         if inner.generation != request_generation || !inner.requested_running {
@@ -1208,7 +1222,9 @@ fn start_engine(
                 status.docker_ready = true;
                 status.message = Some("Starting your local engine. Saved connections will be available to every block.".into());
             });
-            if !background.current(generation) { return Ok(()); }
+            if !background.current(generation) {
+                return Ok(());
+            }
             let mut manifest = connections::manifest(&sources, legacy_source_id.as_deref());
             mcp::manifest(&mut manifest, &mcp_sources, &mcp_ids);
             fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest).unwrap())
@@ -1218,7 +1234,9 @@ fn start_engine(
             let client = providers::http_client(Duration::from_secs(2))?;
             let until = Instant::now() + Duration::from_secs(20 * 60);
             loop {
-                if !background.current(generation) { return Ok(()); }
+                if !background.current(generation) {
+                    return Ok(());
+                }
                 if background.process_exited(generation, false).is_some() {
                     return Err("The local engine could not start. Check Docker and available memory, then retry. Saved engine data is kept.".into());
                 }
@@ -1229,7 +1247,12 @@ fn start_engine(
                                 if held {
                                     let _control = background.control.lock().await;
                                     // A response on the retained port must belong to this held process.
-                                    let owned = control_request(&endpoint, &control_token, "prepare-restart").await?;
+                                    let owned = control_request(
+                                        &endpoint,
+                                        &control_token,
+                                        "prepare-restart"
+                                    )
+                                    .await?;
                                     if owned["ready"] != true {
                                         return Err("The replacement engine could not confirm its held startup.".into());
                                     }
@@ -1237,17 +1260,40 @@ fn start_engine(
                                     let applied = applied.clone();
                                     tauri::async_runtime::spawn_blocking(move || -> Result<(), String> {
                                         let _lock = manager.sources.lock().unwrap();
-                                        if !manager.current(generation) { return Err("Engine startup was cancelled.".into()); }
+                                        if !manager.current(generation) {
+                                            return Err("Engine startup was cancelled.".into());
+                                        }
                                         let mut saved = connections::load(&manager.data)?;
-                                        connections::commit_staged(&manager.data, &mut saved, applied, &connections::Keychain)
-                                    }).await.map_err(|_| "Cannot commit the connection update.")??;
-                                    if !resume_admissions(&background, generation, &endpoint, &control_token).await? {
+                                        connections::commit_staged(
+                                            &manager.data,
+                                            &mut saved,
+                                            applied,
+                                            &connections::Keychain
+                                        )
+                                    })
+                                    .await
+                                    .map_err(|_| "Cannot commit the connection update.")??;
+
+                                    if !resume_admissions(
+                                        &background,
+                                        generation,
+                                        &endpoint,
+                                        &control_token
+                                    )
+                                    .await?
+                                    {
                                         return Ok(());
                                     }
                                 }
                                 {
                                     let manager = background.clone();
-                                    tauri::async_runtime::spawn_blocking(move || { let _lock = manager.sources.lock().unwrap(); connections::cleanup_retired(&manager.data, &connections::Keychain); });
+                                    tauri::async_runtime::spawn_blocking(move || {
+                                        let _lock = manager.sources.lock().unwrap();
+                                        connections::cleanup_retired(
+                                            &manager.data,
+                                            &connections::Keychain
+                                        );
+                                    });
                                 }
                                 let pending = {
                                     let _lock = background.sources.lock().unwrap();
@@ -1255,7 +1301,9 @@ fn start_engine(
                                     connections::pending(&saved)
                                 };
                                 let mut inner = background.inner.lock().unwrap();
-                                if inner.generation != generation { return Ok(()); }
+                                if inner.generation != generation {
+                                    return Ok(());
+                                }
                                 if !pending {
                                     inner.retry_attempts = 0;
                                     inner.retry_at = None;
@@ -1271,17 +1319,32 @@ fn start_engine(
                         }
                     }
                 }
-                if Instant::now() > until { return Err("Local engine setup timed out. Check Docker and available memory before retrying.".into()); }
-                if cancellable(&cancel, tokio::time::sleep(Duration::from_millis(250))).await.is_err() { return Ok(()); }
+                if Instant::now() > until {
+                    return Err("Local engine setup timed out. Check Docker and available memory before retrying.".into());
+                }
+                if cancellable(&cancel, tokio::time::sleep(Duration::from_millis(250)))
+                    .await
+                    .is_err()
+                {
+                    return Ok(());
+                }
             }
             loop {
-                if cancellable(&cancel, tokio::time::sleep(Duration::from_secs(1))).await.is_err() { return Ok(()); }
-                if !background.current(generation) { return Ok(()); }
+                if cancellable(&cancel, tokio::time::sleep(Duration::from_secs(1)))
+                    .await
+                    .is_err()
+                {
+                    return Ok(());
+                }
+                if !background.current(generation) {
+                    return Ok(());
+                }
                 if background.process_exited(generation, false).is_some() {
                     return Err("The local engine stopped. Check Docker and available memory, then restart it to resume saved work.".into());
                 }
             }
-        }.await;
+        }
+        .await;
         if let Err(error) = result {
             if let Some(current) = background.fail(generation, &error) {
                 background.apply_failed(current, &error);
@@ -1346,6 +1409,7 @@ pub async fn desktop_open_dependency(
                 .ok_or_else(|| format!("Cannot open {name}."));
         }
     }
+
     #[cfg(target_os = "windows")]
     {
         let root = std::env::var_os(if dependency == "docker" {
@@ -1376,6 +1440,7 @@ pub async fn desktop_open_dependency(
             return Ok(());
         }
     }
+
     #[cfg(target_os = "linux")]
     if dependency == "docker" {
         if let Some(path) = [
@@ -1675,20 +1740,31 @@ pub(crate) mod tests {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let endpoint = format!("http://{}", listener.local_addr().unwrap());
         let server = std::thread::spawn(move || {
-            responses.into_iter().map(|body| {
-            let (mut socket, _) = listener.accept().unwrap();
-            socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-            let mut reader = std::io::BufReader::new(&socket);
-            let mut request = String::new();
-            loop {
-                let mut line = String::new();
-                reader.read_line(&mut line).unwrap();
-                if line == "\r\n" || line.is_empty() { break; }
-                request.push_str(&line);
-            }
-            write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
-            request
-        }).collect()
+            responses
+                .into_iter()
+                .map(|body| {
+                    let (mut socket, _) = listener.accept().unwrap();
+                    socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                    let mut reader = std::io::BufReader::new(&socket);
+                    let mut request = String::new();
+                    loop {
+                        let mut line = String::new();
+                        reader.read_line(&mut line).unwrap();
+                        if line == "\r\n" || line.is_empty() {
+                            break;
+                        }
+                        request.push_str(&line);
+                    }
+
+                    write!(
+                        socket,
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .unwrap();
+                    request
+                })
+                .collect()
         });
         (endpoint, server)
     }

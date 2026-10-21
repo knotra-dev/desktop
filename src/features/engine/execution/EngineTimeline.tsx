@@ -88,6 +88,7 @@ function TimelineItem({ item, run }: { item: TimelineRow; run: EngineRun }) {
             : 'observe.toolCall',
     );
   }
+
   const customMessage =
     stateEvent && event.message !== state && event.message !== event.type
       ? event.message
@@ -110,6 +111,7 @@ function TimelineItem({ item, run }: { item: TimelineRow; run: EngineRun }) {
     minute: '2-digit',
     second: '2-digit',
   });
+
   const context = item.context
     .map(
       (parent) =>
@@ -125,6 +127,7 @@ function TimelineItem({ item, run }: { item: TimelineRow; run: EngineRun }) {
         : row.kind === 'event' && event?.type === 'run'
           ? Workflow
           : Activity;
+
   return (
     <li className="timeline-event relative grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)] gap-3 border-b border-solid border-line py-3 last:border-0 before:absolute before:bottom-0 before:left-3.5 before:top-11 before:w-px before:bg-line last:before:hidden">
       <span
@@ -218,6 +221,7 @@ export function EngineTimeline({
 }) {
   const { t } = useI18n();
   const rows = useMemo(() => timelineRows(run, events), [run, events]);
+
   return (
     <section
       className="run-timeline mx-auto w-full max-w-4xl min-w-0 px-1 py-2"

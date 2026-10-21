@@ -46,6 +46,7 @@ export default function McpSetup() {
   } catch {
     /* The address stays editable until complete. */
   }
+
   const addressChanged = !!editing && endpoint !== editing.url;
   const needsNewToken = addressChanged && editing?.hasCredential && !token.trim() && !clearToken;
   const credentials = {
@@ -55,16 +56,20 @@ export default function McpSetup() {
     ...(clearToken ? { clearToken: true } : {}),
   };
   const missing = allowed.filter((name) => !tools?.some((tool) => tool.name === name));
+
   function changed() {
     window.dispatchEvent(new Event('knotra-connections-changed'));
   }
+
   function fail(error: unknown, secret = token) {
     const text = error instanceof Error ? error.message : String(error);
     setError(secret.trim() ? text.replaceAll(secret.trim(), '…') : text);
   }
+
   useEffect(() => {
     active.current = true;
     if (!desktop) return;
+
     let current = 0;
     let subscribed = true;
     function load() {
@@ -90,9 +95,11 @@ export default function McpSetup() {
       window.removeEventListener('knotra-connections-changed', load);
     };
   }, []);
+
   useEffect(() => {
     if (open) nameInput.current?.focus();
   }, [open]);
+
   function edit(server?: SavedMcpConnection) {
     revision.current++;
     setAction(undefined);
@@ -106,12 +113,14 @@ export default function McpSetup() {
     setError('');
     setOpen(true);
   }
+
   function invalidate() {
     revision.current++;
     setTools(undefined);
     setAllowed([]);
     setError('');
   }
+
   function close() {
     revision.current++;
     setOpen(false);
@@ -122,11 +131,14 @@ export default function McpSetup() {
     setError('');
     requestAnimationFrame(() => addButton.current?.focus());
   }
+
   async function discover() {
     if (!endpoint || needsNewToken || busy) return;
+
     const current = ++revision.current;
     setAction('discover');
     setError('');
+
     try {
       const items = await mcpTools(credentials);
       if (!active.current || current !== revision.current) return;
@@ -138,11 +150,14 @@ export default function McpSetup() {
       if (active.current && current === revision.current) setAction(undefined);
     }
   }
+
   async function save() {
     if (!title.trim() || !tools || !allowed.length || needsNewToken || busy) return;
+
     const current = ++revision.current;
     setAction('save');
     setError('');
+
     try {
       const server = await saveMcpConnection({
         expectedRevision: editing?.revision,
@@ -160,10 +175,12 @@ export default function McpSetup() {
       if (active.current && current === revision.current) setAction(undefined);
     }
   }
+
   async function update(server: SavedMcpConnection, remove: boolean) {
     const current = ++revision.current;
     setAction(remove ? 'remove' : 'refresh');
     setError('');
+
     try {
       if (remove) {
         const items = await removeMcpConnection(server.id, server.revision);
@@ -181,6 +198,7 @@ export default function McpSetup() {
       if (active.current && current === revision.current) setAction(undefined);
     }
   }
+
   return (
     <section
       id="mcp-settings"

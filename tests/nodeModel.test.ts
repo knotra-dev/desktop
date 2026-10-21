@@ -5,6 +5,7 @@ import type { NodeDefinition, Pipeline } from '../src/lib/types';
 function llm(model = 'shared'): NodeDefinition {
   return { type: 'llm', llm: { model, prompt: { text: 'Answer.' } } };
 }
+
 function pipeline(): Pipeline {
   return {
     apiVersion: 'knotra/v1',
@@ -70,6 +71,7 @@ describe('per-node model selection', () => {
     const value = pipeline();
     value.spec.models!.first_model = { connection: 'other' };
     expect(nodeModelSelection(value, [], 'first', 'codex')?.alias).toBe('first_model_2');
+
     const long = 'a'.repeat(64);
     value.spec.nodes[long] = llm();
     expect(nodeModelSelection(value, [], long, 'codex')!.alias).toMatch(/^[a-z][a-z0-9_]{0,63}$/);

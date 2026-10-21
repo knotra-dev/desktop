@@ -52,6 +52,7 @@ async function start(page: Page) {
   await page.getByRole('combobox', { name: 'Engine profile' }).selectOption('local');
   await page.getByRole('button', { name: 'Check with engine' }).click();
   await expect(page.getByRole('dialog')).toContainText('Engine admission checks passed');
+
   const started = page.waitForResponse(
     (response) =>
       response.url().split('?')[0] === `${endpoint}/v1/runs` &&
@@ -60,6 +61,7 @@ async function start(page: Page) {
   await page.getByRole('button', { name: 'Start run', exact: true }).click();
   const { run } = await (await started).json();
   await expect(page.getByRole('dialog')).toHaveCount(0);
+
   return run;
 }
 
@@ -92,6 +94,7 @@ test('real Ollama run publishes an artifact and replays history on a fresh clien
   await page.getByRole('textbox', { name: 'Workflow title', exact: true }).fill(title);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+
   const startedRun = await start(page);
   await expect(page.locator('.page-heading .status')).toHaveText('Completed', { timeout: 120_000 });
   await page.getByRole('button', { name: 'Outputs', exact: true }).click();
@@ -104,6 +107,7 @@ test('real Ollama run publishes an artifact and replays history on a fresh clien
   await page.locator('.react-flow__node[data-id="greet"]').click();
   await expect(page.locator('.execution-response pre')).toContainText(run.outputs.greeting);
   await expect(page.locator('.execution-usage')).toContainText('Tokens');
+
   const instance = run.instances.find((value: { nodeId: string }) => value.nodeId === 'greet');
   const historyResponse = await page.request.get(
     `${endpoint}/v1/runs/${run.id}/history?instanceId=${encodeURIComponent(instance.id)}`,
@@ -120,6 +124,7 @@ test('real Ollama run publishes an artifact and replays history on a fresh clien
   await page.getByRole('textbox', { name: 'Search engine artifacts' }).fill(run.artifacts[0].id);
   await page.locator('.artifact-card').click();
   await expect(page.locator('.artifact-text')).toContainText(run.outputs.greeting);
+
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const exported = await downloaded;
@@ -248,6 +253,7 @@ Path(os.environ['KNOTRA_OUTPUT_JSON']).write_text('{}')
   await navigate(page, 'Runs');
   await page.locator('.run-table-row').filter({ hasText: title }).click();
   await expect(page.locator('.page-heading .status')).toHaveText('Completed', { timeout: 30_000 });
+
   const { run } = await (await page.request.get(`${endpoint}/v1/runs/${startedRun.id}`)).json();
   await page.getByRole('button', { name: 'Live graph', exact: true }).click();
   const scope = page.locator('.execution-scope-picker select');
@@ -265,6 +271,7 @@ Path(os.environ['KNOTRA_OUTPUT_JSON']).write_text('{}')
   await page.getByRole('textbox', { name: 'Search engine artifacts' }).fill(run.artifacts[0].id);
   await page.locator('.artifact-card').click();
   await expect(page.locator('.artifact-text')).toContainText('Binary artifact');
+
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export', exact: true }).click();
   const exported = await downloaded;
@@ -319,15 +326,18 @@ spec:
   await expect(page.locator('.page-heading .status')).toHaveText('Completed', { timeout: 120_000 });
   await expect(page.locator('.execution-inspector')).toContainText('files.read');
   await expect.poll(() => page.locator('.execution-operation').count()).toBeGreaterThanOrEqual(5);
+
   const { run } = await (await page.request.get(`${endpoint}/v1/runs/${started.id}`)).json();
   expect(run.outputs.summary).toContain('Live agent observation works');
   expect(run.artifacts.map((artifact: { name: string }) => artifact.name)).toEqual(['note.txt']);
+
   const instance = run.instances.find((item: { nodeId: string }) => item.nodeId === 'researcher');
   const history = (
     await (
       await page.request.get(`${endpoint}/v1/runs/${run.id}/history?instanceId=${instance.id}`)
     ).json()
   ).items;
+
   expect(
     history.filter((event: { type: string }) => event.type === 'agent.iteration').length,
   ).toBeGreaterThanOrEqual(3);

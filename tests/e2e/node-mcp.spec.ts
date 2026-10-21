@@ -137,6 +137,7 @@ async function open(page: Page, pipeline = definition()) {
             if (command === 'desktop_setup_status')
               return { phase: 'idle', configured: false, mcpConnections: sources, connections: [] };
             if (command === 'engine_cache') return { cache: {}, pending: [] };
+
             return 1;
           },
         },
@@ -165,6 +166,7 @@ test('tool blocks select saved servers and discovered allowed tools without chan
   await expect(tool.getByRole('option', { name: 'Delete document', exact: true })).toHaveCount(0);
   await expect(page.getByRole('combobox', { name: 'MCP server alias', exact: true })).toBeHidden();
   await expect(page.getByRole('textbox', { name: 'Tool name', exact: true })).toBeHidden();
+
   const source = await pipeline(page);
   expect(record(source.spec.nodes.lookup.tool).server).toBe('lookup_mcp');
   await expect(page.getByTestId('rf__node-lookup').locator('.node-summary')).toHaveText('search');

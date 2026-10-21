@@ -68,6 +68,7 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
       codexAvailable: true,
       claudeAvailable: true,
     };
+
     function persist() {
       sessionStorage.setItem('fixture.sources', JSON.stringify(sources));
       current = {
@@ -97,6 +98,7 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
         if (notify) window.dispatchEvent(new Event('knotra-engine-changed'));
       },
     });
+
     function catalog(provider: unknown) {
       if (scenario.modelEmpty) return [];
       return provider === 'codex' || provider === 'claude'
@@ -121,6 +123,7 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
         if (command === 'desktop_setup_status') {
           await statusReady;
           if (scenario.runtimeStatusError) throw 'Runtime status unavailable';
+
           if (
             current.phase === 'starting' &&
             !scenario.holdAutoReady &&
@@ -134,6 +137,7 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
         if (command === 'desktop_connection_save') {
           saveAttempts++;
           if (scenario.saveFailsOnce && saveAttempts === 1) throw `Cannot save ${args.apiKey}`;
+
           const existing = sources.find((source: { id: string }) => source.id === args.id);
           const models = args.model
             ? [{ id: String(args.model), name: String(args.model) }]
@@ -149,6 +153,7 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
           };
           sources = [...sources.filter((item: { id: string }) => item.id !== source.id), source];
           persist();
+
           return source;
         }
         if (command === 'desktop_connection_refresh') {
@@ -184,6 +189,7 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
           catalogAttempts++;
           if (scenario.modelErrorAfterLoad && catalogAttempts > 1)
             throw `Catalog unavailable for ${args.apiKey}`;
+
           return catalog(args.provider);
         }
         if (command === 'desktop_engine_start') {
@@ -197,12 +203,14 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
             sourceApplyError: undefined,
             engineGeneration: current.engineGeneration + 1,
           };
+
           return current;
         }
         if (command === 'engine_connect') {
           connectionAttempts++;
           if (scenario.connectFailsOnce && connectionAttempts === 1)
             throw 'Temporary attach failure';
+
           return {
             protocol: 'knotra.desktop/1',
             engineId: 'setup-fixture',
@@ -286,18 +294,22 @@ async function nativeSetup(page: Page, scenario: Scenario = {}) {
               ],
               nextCursor: null,
             };
+
           return { items: [], nextCursor: null };
         }
+
         return 1;
       },
     };
   }, scenario);
 }
+
 async function openSetup(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.locator('.model-setup')).toBeVisible();
 }
+
 async function calls(page: Page) {
   return page.evaluate(
     () =>
@@ -305,6 +317,7 @@ async function calls(page: Page) {
         .setupCalls,
   );
 }
+
 async function advanceSources(
   page: Page,
   state: 'pending' | 'applying' | 'current' | 'error',
@@ -321,19 +334,23 @@ async function advanceSources(
     { state, error, notify },
   );
 }
+
 async function nativeWorkspace(page: Page) {
   return page.evaluate(() => JSON.parse(sessionStorage.getItem('fixture.workspace')!));
 }
+
 async function existingEngine(page: Page) {
   const input = page.getByRole('textbox', { name: 'Engine base URL', exact: true });
   if (await input.isHidden()) await page.locator('[data-tour="engine"] summary').click();
   return input;
 }
+
 async function apiSource(page: Page, name = 'My API') {
   await chooseProvider(page, 'OpenAI API');
   await page.getByLabel('Source name', { exact: true }).fill(name);
   await page.getByLabel('API key', { exact: true }).fill('secret-api-key');
 }
+
 async function chooseProvider(page: Page, name: string) {
   await page
     .getByRole('group', { name: 'Choose a provider', exact: true })
@@ -379,6 +396,7 @@ test('browser preview explains native setup and never invokes native commands', 
   await expect(
     page.getByText('Manage saved sources in the desktop app.', { exact: false }),
   ).toBeVisible();
+
   const providers = page.getByRole('group', { name: 'Choose a provider', exact: true });
   await expect(providers.getByRole('button')).toHaveCount(6);
   for (const button of await providers.getByRole('button').all())
@@ -441,6 +459,7 @@ test('saving a source stores its model catalog without starting the engine or ex
   await page.getByRole('button', { name: 'Save source', exact: true }).click();
   await expect(page.getByRole('list', { name: 'Saved model sources' })).toContainText('My API');
   await expect(page.getByLabel('API key', { exact: true })).toHaveCount(0);
+
   const recorded = await calls(page);
   expect(recorded.find((call) => call.command === 'desktop_connection_save')?.args).toEqual({
     title: 'My API',
@@ -511,6 +530,7 @@ test('editing a saved source reuses its credential; refresh and remove are indep
   await page.getByRole('button', { name: 'Remove My Claude', exact: true }).click();
   await page.getByRole('button', { name: 'Remove Renamed API', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Choose a provider', exact: true })).toBeVisible();
+
   const recorded = await calls(page);
   expect(recorded.find((call) => call.command === 'desktop_connection_save')?.args).toEqual({
     id: 'api',
@@ -574,6 +594,7 @@ test('canceling a source edit discards its key and restores focus without saving
   await page.getByLabel('API key', { exact: true }).fill('unsubmitted-key');
   await page.getByRole('button', { name: 'Cancel editing', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Add source', exact: true })).toBeFocused();
+
   const list = page.getByRole('list', { name: 'Saved model sources', exact: true });
   await expect(list).toContainText('Work API');
   await expect(list).not.toContainText('Unsubmitted name');
@@ -636,6 +657,7 @@ test('engine start and stop live in a separate section and use all saved sources
     .getByRole('button', { name: 'Stop local engine', exact: true })
     .click();
   await expect(page.locator('.engine-setup')).toContainText('Stopped');
+
   const recorded = await calls(page);
   expect(
     recorded.filter((call) => call.command === 'desktop_engine_start').map((call) => call.args),
@@ -771,11 +793,13 @@ for (const viewport of [
     await expect(
       guide.getByRole('button', { name: 'Skip model setup', exact: true }),
     ).toBeVisible();
+
     const panel = (await guide.boundingBox())!;
     const source = (await page.locator('.model-setup').boundingBox())!;
     expect(source.x + source.width).toBeLessThanOrEqual(panel.x - 16);
     expect(panel.y + panel.height).toBeLessThanOrEqual(viewport.height);
     await expect(page.locator('.workspace-tour-target')).toHaveCSS('pointer-events', 'none');
+
     const content = (await page.locator('.main-content').boundingBox())!;
     await expect
       .poll(async () => (await page.locator('.workspace-tour-target').boundingBox())!.y)
@@ -788,6 +812,7 @@ for (const viewport of [
     await expect(page.getByRole('list', { name: 'Saved model sources' })).toContainText('Tour API');
     await page.getByRole('button', { name: 'Resources', exact: true }).click();
     await expect(page.locator('.workspace-tour-target')).toBeVisible();
+
     const settings = (await page
       .getByRole('button', { name: 'Settings', exact: true })
       .boundingBox())!;
@@ -798,6 +823,7 @@ for (const viewport of [
     await guide.getByRole('button', { name: 'Skip model setup', exact: true }).click();
     await expect(guide).toContainText('6 of 8');
     await expect(page.getByRole('textbox', { name: 'Instructions', exact: true })).toBeVisible();
+
     const nodeModels = page.locator('[data-tour="node-model"]');
     await expect(nodeModels.getByRole('textbox')).toHaveCount(0);
     await nodeModels
@@ -834,11 +860,13 @@ test('changed sources apply automatically and refresh catalogs without a fronten
       async () => (await calls(page)).filter((call) => call.command === 'engine_connect').length,
     )
     .toBe(1);
+
   const lifecycleBefore = (await calls(page)).filter((call) =>
     /^(engine_connect|engine_disconnect|desktop_engine_start|desktop_setup_cancel)$/.test(
       call.command,
     ),
   );
+
   await expect
     .poll(
       async () =>
@@ -848,6 +876,7 @@ test('changed sources apply automatically and refresh catalogs without a fronten
         ).length,
     )
     .toBeGreaterThan(0);
+
   const profilesBefore = (await calls(page)).filter(
     (call) =>
       call.command === 'engine_call' && (call.args.call as { op: string }).op === 'profiles',
@@ -1038,6 +1067,7 @@ test('a ready event completes a pending start and source changes no longer need 
       async () => (await calls(page)).filter((call) => call.command === 'engine_connect').length,
     )
     .toBe(1);
+
   const lifecycleBefore = (await calls(page)).filter((call) =>
     /^(engine_connect|engine_disconnect|desktop_engine_start|desktop_setup_cancel)$/.test(
       call.command,
@@ -1066,6 +1096,7 @@ test('stopping the engine still disconnects after leaving Settings', async ({ pa
       async () => (await calls(page)).filter((call) => call.command === 'engine_connect').length,
     )
     .toBe(1);
+
   const disconnects = (await calls(page)).filter(
     (call) => call.command === 'engine_disconnect',
   ).length;
@@ -1128,6 +1159,7 @@ test('source apply errors preserve the working session and recover without manua
       async () => (await calls(page)).filter((call) => call.command === 'engine_connect').length,
     )
     .toBe(1);
+
   const lifecycleBefore = (await calls(page)).filter((call) =>
     /^(engine_connect|engine_disconnect|desktop_engine_start|desktop_setup_cancel)$/.test(
       call.command,
@@ -1161,6 +1193,7 @@ test('existing engine connects once on submit and keeps manual selection across 
       async () => (await calls(page)).filter((call) => call.command === 'engine_connect').length,
     )
     .toBe(1);
+
   const address = await existingEngine(page);
   await expect(page.getByRole('button', { name: 'Save address', exact: true })).toHaveCount(0);
   await address.fill('http://127.0.0.1:9999/');
@@ -1174,6 +1207,7 @@ test('existing engine connects once on submit and keeps manual selection across 
     .poll(async () => (await nativeWorkspace(page)).engineUrl)
     .toBe('http://127.0.0.1:9999');
   expect((await nativeWorkspace(page)).engineMode).toBe('manual');
+
   const connection = (await calls(page))
     .filter((call) => call.command === 'engine_connect')
     .at(-1)!;
@@ -1200,6 +1234,7 @@ test('invalid existing engine addresses do not change the active endpoint or man
       async () => (await calls(page)).filter((call) => call.command === 'engine_connect').length,
     )
     .toBe(1);
+
   const address = await existingEngine(page);
   for (const url of [
     'file:///tmp/engine',
@@ -1297,6 +1332,7 @@ for (const locale of ['en', 'ru'] as const)
           })
         );
       });
+
       expect(fits).toBe(true);
       await page.screenshot({
         path: testInfo.outputPath(`existing-engine-${locale}-${theme}-1000.png`),

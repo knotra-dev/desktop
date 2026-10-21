@@ -16,8 +16,10 @@ export function nodeMcpResponseDefaults(
   previous?: McpTool,
 ): ReturnType<typeof mcpToolResponse> | undefined {
   if (node.type !== 'tool' || Object.keys(node.outputs ?? {}).join() !== 'result') return;
+
   const port = node.outputs?.result;
   if (!port || Object.keys(port).join() !== 'schema') return;
+
   const schema = record(port.schema);
   const response = record(node.tool).response ?? 'structured';
   const genericObject =
@@ -29,6 +31,7 @@ export function nodeMcpResponseDefaults(
   const priorDefault =
     response === prior.response && JSON.stringify(port.schema) === JSON.stringify(prior.schema);
   if (!genericObject && !priorDefault) return;
+
   return mcpToolResponse(tool);
 }
 
@@ -41,6 +44,7 @@ function scopedNode(
   for (const id of scope) {
     const node = graph.nodes[id];
     if (!node || !['foreach', 'loop'].includes(node.type)) return;
+
     graph = record(record(node[node.type]).body) as unknown as Graph;
   }
   return graph.nodes[nodeId];
@@ -62,11 +66,13 @@ export function nodeMcpSelection(
 ): { alias: string; resource: Record<string, unknown> } | undefined {
   const node = scopedNode(pipeline, scope, nodeId);
   if (node?.type !== 'tool') return;
+
   const currentAlias = String(record(node.tool).server ?? '');
   const current = pipeline.spec.mcp?.[currentAlias] ?? {};
   if (current.connection === connection) return { alias: currentAlias, resource: current };
 
   let references = Object.hasOwn(record(pipeline.spec.defaults?.tools?.mcp), currentAlias) ? 1 : 0;
+
   function count(graph: Graph) {
     for (const node of Object.values(graph.nodes)) {
       const config = record(node[node.type]);
@@ -80,6 +86,7 @@ export function nodeMcpSelection(
     !pipeline.spec.mcp?.[currentAlias] || references > 1
       ? availableAlias(pipeline, scope, nodeId)
       : currentAlias;
+
   return { alias, resource: { ...current, connection } };
 }
 
@@ -101,6 +108,7 @@ export function effectiveAgentTools(
       ...(Array.isArray(own.sandbox) ? own.sandbox : []),
     ]),
   ];
+
   return { ...own, inherit: false, mcp, sandbox };
 }
 
@@ -116,6 +124,7 @@ export function agentMcpSelection(
   | undefined {
   const node = scopedNode(pipeline, scope, nodeId);
   if (node?.type !== 'agent') return;
+
   // Materialize inherited grants so unchecking one MCP tool does not remove sandbox permissions.
   const tools = effectiveAgentTools(pipeline.spec, node);
   const mcp = tools.mcp as Record<string, string[]>;
@@ -129,8 +138,10 @@ export function agentMcpSelection(
     }
     return { tools };
   }
+
   const alias =
     aliases.find((alias) => mcp[alias]) ?? aliases[0] ?? availableAlias(pipeline, scope, nodeId);
   mcp[alias] = [...new Set([...(mcp[alias] ?? []), tool])];
+
   return { tools, alias, resource: pipeline.spec.mcp?.[alias] ?? { connection } };
 }

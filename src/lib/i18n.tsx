@@ -24,6 +24,7 @@ export const russianMessages: Record<string, string> = ru;
 
 export function translate(key: string, locale: Locale, values: TranslationValues = {}): string {
   if (!Object.hasOwn(englishMessages, key)) return key;
+
   const template =
     locale === 'ru' ? (russianMessages[key] ?? englishMessages[key]) : englishMessages[key];
   return template.replace(/\{(\w+)\}/g, (placeholder, key: string) =>
@@ -59,9 +60,11 @@ export function translateMessage(
     const translated = translateMessage(detail, locale, values);
     return translated === detail ? message : translated;
   }
+
   const key = messageKeys.get(message);
   if (key) return translate(key, locale, values);
   if (Object.hasOwn(en, message)) return translate(message, locale, values);
+
   if (locale === 'ru' && message.length <= 4096) {
     for (const entry of messagePatterns) {
       const match = entry.pattern.exec(message);
@@ -71,6 +74,7 @@ export function translateMessage(
       }
     }
   }
+
   return message;
 }
 

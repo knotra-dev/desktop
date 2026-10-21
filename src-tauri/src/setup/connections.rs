@@ -11,6 +11,7 @@ pub struct SavedConnection {
     pub models: Vec<providers::ProviderModel>,
     pub default_model: Option<String>,
     pub has_credential: bool,
+
     #[serde(default)]
     pub revision: u64,
 }
@@ -22,16 +23,21 @@ pub(super) struct SavedSetup {
     pub engine_enabled: bool,
     pub engine_directory: Option<PathBuf>,
     pub legacy_source_id: Option<String>,
+
     #[serde(default)]
     pub connections: Vec<SavedConnection>,
+
     #[serde(default)]
     pub mcp_connections: Vec<mcp::SavedMcpConnection>,
+
     #[serde(default)]
     pub mcp_ids: Vec<String>,
+
     #[serde(default)]
     pub desired_revision: u64,
     pub applied: Option<AppliedSetup>,
     pub staged: Option<AppliedSetup>,
+
     #[serde(default)]
     pub retired_credentials: Vec<String>,
 }
@@ -40,11 +46,14 @@ pub(super) struct SavedSetup {
 #[serde(rename_all = "camelCase")]
 pub(super) struct AppliedSetup {
     pub revision: u64,
+
     #[serde(default)]
     pub incomplete: bool,
     pub connections: Vec<SavedConnection>,
+
     #[serde(default)]
     pub mcp_connections: Vec<mcp::SavedMcpConnection>,
+
     #[serde(default)]
     pub mcp_ids: Vec<String>,
     pub legacy_source_id: Option<String>,
@@ -135,6 +144,7 @@ pub(super) fn load(root: &Path) -> Result<SavedSetup, String> {
         mcp::validate_saved(source)
             .map_err(|_| "Saved MCP connections are invalid. Your data has not been changed.")?;
     }
+
     let mut known_mcp = std::collections::HashSet::new();
     if saved
         .mcp_ids
@@ -159,6 +169,7 @@ pub(super) fn migrate(root: &Path) -> Result<(), String> {
     if root.join("desktop-connections.json").exists() {
         return Ok(());
     }
+
     let Some(directory) = fs::read_dir(root).ok().and_then(|entries| {
         entries
             .filter_map(Result::ok)
@@ -228,6 +239,7 @@ pub(super) fn store(root: &Path, saved: &SavedSetup) -> Result<(), String> {
     if encoded.len() > 8 * 1024 * 1024 {
         return Err("Saved connection catalogs exceed the supported size. Remove an unused connection before adding another.".into());
     }
+
     private_dir(root)?;
     let temporary = root.join(".desktop-connections.tmp");
     let mut options = fs::OpenOptions::new();
@@ -298,6 +310,7 @@ pub(super) fn save(
             "This model source changed while you were editing it. Reload it and try again.".into(),
         );
     }
+
     source.revision = source
         .revision
         .checked_add(1)
@@ -306,6 +319,7 @@ pub(super) fn save(
         .desired_revision
         .checked_add(1)
         .ok_or("The saved model source revision is invalid. Your data has not been changed.")?;
+
     let previous_key = if old.as_ref().is_some_and(|old| old.has_credential) {
         retained_key_origin(
             old.as_ref().unwrap(),
@@ -317,6 +331,7 @@ pub(super) fn save(
     } else {
         None
     };
+
     let api_key = api_key.filter(|value| !value.is_empty());
     source.has_credential = api_key.is_some() || previous_key.is_some();
     reject_credential_echo(&source, api_key)?;
@@ -337,6 +352,7 @@ pub(super) fn save(
         saved.connections.push(source.clone());
     }
     saved.desired_revision = desired_revision;
+
     if let Err(error) = store(root, &saved) {
         if api_key.is_some() {
             match previous_key {
@@ -370,6 +386,7 @@ fn refresh(
                 .into(),
         );
     }
+
     source.revision = source
         .revision
         .checked_add(1)
@@ -406,6 +423,7 @@ pub(super) fn remove(
     }
     saved.connections.retain(|source| source.id != id);
     saved.desired_revision = desired_revision;
+
     if let Err(error) = store(root, &saved) {
         if let Some(value) = previous_key {
             let _ = credentials.set(id, &value);
@@ -485,6 +503,7 @@ pub(super) fn commit_applied(
     if from_staged {
         saved.staged = None;
     }
+
     let previous = saved.applied.replace(applied);
     let old_retired = saved.retired_credentials.len();
     if let Some(previous) = &previous {
@@ -492,6 +511,7 @@ pub(super) fn commit_applied(
             .retired_credentials
             .extend(previous.credential_entries.values().cloned());
     }
+
     if let Err(error) = store(root, saved) {
         if let Some(staged) = &saved.applied {
             if !from_staged {
@@ -551,6 +571,7 @@ pub(super) fn stage_update(
         return Err(errors.join(" "));
     }
     let previous = saved.staged.replace(staged);
+
     if let Err(error) = store(root, saved) {
         if let Some(staged) = &saved.staged {
             discard_applied(staged, credentials);
@@ -587,9 +608,11 @@ impl<C: Credentials> Credentials for AppliedCredentials<'_, C> {
             None => Ok(None),
         }
     }
+
     fn set(&self, _: &str, _: &str) -> Result<(), String> {
         Err("Applied credentials are immutable.".into())
     }
+
     fn remove(&self, _: &str) -> Result<(), String> {
         Err("Applied credentials are immutable.".into())
     }
@@ -718,6 +741,7 @@ pub async fn desktop_connection_save(
     {
         return Err("Create a new source to use a different provider.".into());
     }
+
     let key = supplied.clone().or(retained_key);
     let base_url =
         base_url.or_else(|| existing.as_ref().and_then(|source| source.base_url.clone()));
@@ -751,6 +775,7 @@ pub async fn desktop_connection_save(
             });
         }
     }
+
     let title = title
         .filter(|value| !value.trim().is_empty())
         .or_else(|| existing.as_ref().map(|source| source.title.clone()))
@@ -769,6 +794,7 @@ pub async fn desktop_connection_save(
         has_credential: false,
         revision,
     };
+
     let editing = id.is_some();
     tauri::async_runtime::spawn_blocking(move || {
         let _lock = setup.sources.lock().unwrap();
@@ -1175,7 +1201,14 @@ mod tests {
         .unwrap();
         fs::write(dir.join("settings.json"), "keep-settings").unwrap();
         fs::write(dir.join("saved-artifact"), "keep-artifact").unwrap();
-        fs::write(dir.join("profile.json"), serde_json::to_vec(&serde_json::json!({"spec": {"models": {"model_main": {"provider": provider, "model": model}}}})).unwrap()).unwrap();
+        fs::write(
+            dir.join("profile.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "spec": {"models": {"model_main": {"provider": provider, "model": model}}}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
         dir
     }
 

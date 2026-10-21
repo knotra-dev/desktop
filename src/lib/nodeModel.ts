@@ -12,10 +12,12 @@ export function nodeModelSelection(
   for (const id of scope) {
     const node = graph.nodes[id];
     if (!node || !['foreach', 'loop'].includes(node.type)) return;
+
     graph = record(record(node[node.type]).body) as unknown as Graph;
   }
   const node = graph.nodes[nodeId];
   if (!node || !['llm', 'agent'].includes(node.type)) return;
+
   const currentAlias = String(record(node[node.type]).model ?? '');
   const models = pipeline.spec.models ?? {};
   const current = models[currentAlias] ?? {};
@@ -28,6 +30,7 @@ export function nodeModelSelection(
     return;
 
   let references = 0;
+
   function count(graph: Graph) {
     for (const node of Object.values(graph.nodes)) {
       const config = record(node[node.type]);
@@ -48,5 +51,6 @@ export function nodeModelSelection(
   else delete resource.model;
   if (parameters === null) delete resource.parameters;
   else if (parameters !== undefined) resource.parameters = parameters;
+
   return { alias, resource };
 }

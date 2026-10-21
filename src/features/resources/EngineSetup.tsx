@@ -96,6 +96,7 @@ export default function EngineSetup({
     setAction('start');
     setError('');
     ownsStart.current = true;
+
     try {
       window.dispatchEvent(new Event('knotra-engine-start-requested'));
       const next = await startDesktopEngine();
@@ -109,11 +110,13 @@ export default function EngineSetup({
       }
     }
   }
+
   async function stop() {
     setAction('stop');
     setError('');
     ownsStart.current = false;
     const previousEndpoint = status?.endpoint;
+
     try {
       const next = await cancelSetup();
       if (active.current) setStatus(next);
@@ -125,10 +128,13 @@ export default function EngineSetup({
       if (active.current) setAction(undefined);
     }
   }
+
   if (!desktop) return null;
+
   const starting = status?.phase === 'starting';
   const running = status?.phase === 'ready';
   const hasSources = !!(status?.connections?.length || status?.mcpConnections?.length);
+
   return (
     <section
       className="settings-card engine-setup max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5"

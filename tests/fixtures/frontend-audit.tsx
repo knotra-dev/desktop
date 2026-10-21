@@ -140,6 +140,7 @@ const engine: EngineController = {
   command: async <T,>(request: Parameters<EngineController['command']>[0]) => {
     auditCommands.push(request);
     if (request.op === 'upload') throw new Error('Upload failed in fixture.');
+
     return { accepted: true } as T;
   },
 };

@@ -169,6 +169,7 @@ pub(super) fn validate(
     {
         return Err("Account connections use the official CLI sign-in, without an API key or custom API URL.".into());
     }
+
     let base = base
         .filter(|value| !value.is_empty())
         .map(endpoint)
@@ -253,6 +254,7 @@ pub(super) async fn models(
         }
         return Ok(models);
     }
+
     let base = api_endpoint(provider, base_url)?;
     let suffix = if provider == "ollama" {
         "/api/tags"
@@ -277,6 +279,7 @@ pub(super) async fn models(
         } else if let Some(key) = api_key {
             request = request.bearer_auth(key);
         }
+
         let response = request.send().await.map_err(|_| {
             "Could not reach the model catalog. Check the API URL, network and TLS certificate."
         })?;
@@ -286,7 +289,9 @@ pub(super) async fn models(
                     .into(),
             );
         }
+
         let mut bytes = Vec::new();
+
         let mut stream = response.bytes_stream();
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|_| "The model catalog download failed.")?;
@@ -296,6 +301,7 @@ pub(super) async fn models(
             }
             bytes.extend_from_slice(&chunk);
         }
+
         let value: Value = serde_json::from_slice(&bytes)
             .map_err(|_| "The provider returned an invalid model catalog.")?;
         let items = value[if provider == "ollama" {
@@ -333,6 +339,7 @@ pub(super) async fn models(
         }
         after = Some(cursor.to_owned());
     }
+
     result.sort_by(|a, b| a.id.cmp(&b.id));
     result.dedup_by(|a, b| a.id == b.id);
     reject_credential_echo(&result, api_key)?;
@@ -452,6 +459,7 @@ pub(super) async fn ensure_cli(
             return Ok(path);
         }
     }
+
     let asset = asset(provider)?;
     let cache = setup.cache.join(format!("{provider}-{version}"));
     private_dir(&cache)?;
@@ -506,6 +514,7 @@ pub(super) async fn ensure_cli(
             "The official CLI download is unavailable. Check the network and retry.".into(),
         );
     }
+
     let mut stream = response.bytes_stream();
     let mut received = 0u64;
     let mut hash = Sha256::new();
@@ -531,6 +540,7 @@ pub(super) async fn ensure_cli(
             ))
         });
     }
+
     if received != asset.size || format!("{:x}", hash.finalize()) != asset.sha256.to_lowercase() {
         return Err("The account CLI checksum did not match. Nothing was installed; retry on a trusted network.".into());
     }
@@ -539,6 +549,7 @@ pub(super) async fn ensure_cli(
     if !setup.login_current(generation) {
         return Err("Setup cancelled.".into());
     }
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -567,6 +578,7 @@ fn login_details(text: &str) -> (Option<String>, Option<String>) {
             _ => {}
         }
     }
+
     let mut url = None;
     let mut code = None;
     for token in plain.split_whitespace() {
@@ -660,7 +672,14 @@ pub async fn desktop_provider_sign_in(
             let replacing_account = {
                 let _lock = background.sources.lock().unwrap();
                 let saved = connections::load(&background.data)?;
-                saved.applied.iter().chain(saved.staged.iter()).any(|snapshot| snapshot.connections.iter().any(|source| source.provider == provider))
+                saved
+                    .applied
+                    .iter()
+                    .chain(saved.staged.iter())
+                    .any(|snapshot| snapshot
+                        .connections
+                        .iter()
+                        .any(|source| source.provider == provider))
             };
             if replacing_account {
                 let (engine_generation, endpoint, token) = {
@@ -668,7 +687,11 @@ pub async fn desktop_provider_sign_in(
                     if inner.status.phase != "ready" || inner.engine.is_none() {
                         return Err("Start the local engine before replacing this account so Knotra can check for unfinished workflows.".into());
                     }
-                    (inner.generation, inner.status.endpoint.clone().ok_or("The local engine is not ready.")?, inner.control_token.clone().ok_or("The local engine is not ready.")?)
+                    (
+                        inner.generation,
+                        inner.status.endpoint.clone().ok_or("The local engine is not ready.")?,
+                        inner.control_token.clone().ok_or("The local engine is not ready.")?
+                    )
                 };
                 let prepared = match control_request(&endpoint, &token, "prepare-restart").await {
                     Ok(prepared) => prepared,
@@ -682,7 +705,10 @@ pub async fn desktop_provider_sign_in(
                 }
                 frozen = Some((engine_generation, endpoint, token));
             }
-            if !background.login_current(generation) { return Ok(()); }
+            if !background.login_current(generation) {
+                return Ok(());
+            }
+
             let executable = ensure_cli(&background, &provider, generation, cancel.clone()).await?;
             if !background.login_current(generation) {
                 return Ok(());
@@ -763,21 +789,32 @@ mod tests {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let url = format!("http://{}/v1", listener.local_addr().unwrap());
         let server = std::thread::spawn(move || {
-            responses.into_iter().map(|response| {
-                let (mut socket, _) = listener.accept().unwrap();
-                socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
-                let mut request = String::new();
-                let mut reader = std::io::BufReader::new(&socket);
-                loop {
-                    let mut line = String::new();
-                    reader.read_line(&mut line).unwrap();
-                    if line == "\r\n" || line.is_empty() { break; }
-                    request.push_str(&line);
-                }
-                let body = response.to_string();
-                write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
-                request
-            }).collect()
+            responses
+                .into_iter()
+                .map(|response| {
+                    let (mut socket, _) = listener.accept().unwrap();
+                    socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                    let mut request = String::new();
+                    let mut reader = std::io::BufReader::new(&socket);
+                    loop {
+                        let mut line = String::new();
+                        reader.read_line(&mut line).unwrap();
+                        if line == "\r\n" || line.is_empty() {
+                            break;
+                        }
+                        request.push_str(&line);
+                    }
+
+                    let body = response.to_string();
+                    write!(
+                        socket,
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .unwrap();
+                    request
+                })
+                .collect()
         });
         (url, server)
     }

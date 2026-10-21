@@ -11,6 +11,7 @@ export async function openActiveEditor(page: Page) {
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem('knotra.workspace.v1')))
     .not.toBeNull();
+
   const index = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('knotra.workspace.v1')!);
     return state.workspaces.findIndex(

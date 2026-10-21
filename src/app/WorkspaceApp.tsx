@@ -99,16 +99,20 @@ export function WorkspaceApp({ initial }: { initial: State }) {
   }>({
     message: '',
   });
+
   const [query, setQuery] = useState('');
   const [activeRun, setActiveRun] = useState<string>();
   const [reviewDrafts, setReviewDrafts] = useState<Record<string, Record<string, string>>>({});
+
   useLayoutEffect(() => {
     document.documentElement.dataset.theme = state.theme;
   }, [state.theme]);
+
   useLayoutEffect(() => {
     document.documentElement.lang = state.locale;
     document.title = t('app.title');
   }, [state.locale, t]);
+
   const workspace = state.workspaces.find((w) => w.id === state.activeId) ?? state.workspaces[0];
   const { source, files, entrypoint } = workspace ?? {};
   const validation = useMemo(
@@ -133,6 +137,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       return 0;
     }
   });
+
   const [tourWorkspaceId, setTourWorkspaceId] = useState<string | undefined>(() => {
     try {
       return localStorage.getItem('knotra.tour.workspace.v1') ?? undefined;
@@ -140,6 +145,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       return undefined;
     }
   });
+
   const rememberedLesson = state.workspaces.find((w) => w.id === tourWorkspaceId);
   const lessonPipeline = rememberedLesson ? parsePipeline(rememberedLesson.source) : undefined;
   const lessonModel = lessonPipeline?.spec.nodes.answer;
@@ -169,10 +175,12 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     openImport,
   } = usePackageTransfer(workspace, validation, addWorkspace, setDialog, notify);
   const notifyRaw = useCallback((message: string) => setToast({ message, raw: true }), []);
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: Reset scrolling when the visible route, workspace or run changes.
   useLayoutEffect(() => {
     document.querySelector('.main-content')?.scrollTo(0, 0);
   }, [section, pipelinePage, workspace?.id, activeRun]);
+
   const engine = useEngine(notifyRaw);
   const [modelConnections, setModelConnections] = useState<SavedConnection[]>([]);
   const [mcpConnections, setMcpConnections] = useState<SavedMcpConnection[]>([]);
@@ -208,8 +216,10 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     },
     [engine.connect, t],
   );
+
   useEffect(() => {
     if (!desktop) return;
+
     let active = true;
     let revision = 0;
     async function load() {
@@ -230,8 +240,10 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       window.removeEventListener('knotra-connections-changed', load);
     };
   }, [notifyRaw]);
+
   useEffect(() => {
     if (!desktop) return;
+
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     let polling = false;
@@ -290,10 +302,12 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       window.removeEventListener('knotra-engine-start-requested', startRequested);
     };
   }, [notifyRaw, setupReady, engine.refresh]);
+
   async function setupStopped(endpoint: string | undefined) {
     attachOnOpen.current = false;
     if (endpoint && endpoint === state.engineUrl) await engine.disconnect();
   }
+
   const currentReviewScope = engine.sessionKey ?? 'offline';
   const waiting = engine.info
     ? engine.requests.filter((request) => request.status === 'open').length
@@ -457,15 +471,19 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     }
     throw new DesktopControlError('invalid', 'Unsupported desktop control operation.');
   });
+
   useEffect(() => {
     if (!toast.message) return;
+
     const timer = setTimeout(() => setToast({ message: '' }), 6000);
     return () => clearTimeout(timer);
   }, [toast]);
+
   const saveDraft = useCallback(() => {
     const current = stateRef.current;
     const w = current.workspaces.find((w) => w.id === current.activeId);
     if (!w) return;
+
     setState((s) => ({
       ...s,
       workspaces: s.workspaces.map((current) =>
@@ -475,6 +493,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     notify('messages.draftSavedInThisLocalWorkspace');
   }, [notify, stateRef]);
   useWorkspaceShortcuts(saveDraft, section, pipelinePage, dialog, setDialog, setQuery);
+
   function selectWorkspace(id: string) {
     setOpenResources(undefined);
     setState((s) => ({ ...s, activeId: id }));
@@ -483,6 +502,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     if (tourIndex !== undefined && id !== tourWorkspaceId) setTourIndex(0);
     closeDialog();
   }
+
   function addWorkspace(opened: OpenedPackage) {
     setOpenResources(undefined);
     const w: Workspace = {
@@ -500,10 +520,12 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     closeDialog();
     notify('messages.pipelinePackageAddedToYourLocalWorkspace');
   }
+
   function selectExample(id: string) {
     setOpenResources(undefined);
     const example = examples.find((e) => e.id === id);
     if (!example) return;
+
     const w = fromExample(example, state.locale);
     setState((s) => ({ ...s, workspaces: [...s.workspaces, w], activeId: w.id }));
     setSection('pipelines');
@@ -511,12 +533,16 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     if (tourIndex !== undefined) setTourIndex(0);
     closeDialog();
   }
+
   function addNode(kind: NodeKind) {
     if (!workspace || !validation.pipeline) return;
+
     const example = examples.find((e) => e.id === (kind === 'pipeline' ? 'subpipeline' : kind));
     if (!example) return;
+
     const p = parsePipeline(example.source);
     if (!p) return;
+
     const node = structuredClone(Object.values(p.spec.nodes)[0]);
     if (kind === 'tool') {
       node.tool = { ...record(node.tool), response: 'content' };
@@ -589,6 +615,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       kind: nodeMeta[kind].label,
     });
   }
+
   function navigate(next: Section) {
     setOpenResources(undefined);
     setOpenResourceNode(undefined);
@@ -602,6 +629,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       else setTourIndex(0);
     }
   }
+
   function openEngineSettings() {
     navigate('settings');
     if (tourIndex !== undefined) setTourIndex(6);
@@ -611,6 +639,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
         ?.scrollIntoView({ block: 'start' });
     });
   }
+
   const tourSteps = [
     { id: 'welcome', section: 'pipelines', target: '[data-tour="nav-pipelines"]' },
     { id: 'prompt', section: 'pipelines', target: '.setup-inspector textarea' },
@@ -634,6 +663,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     Object.values(reviewNode?.[1].inputs ?? {}).some(
       (port) => port.bind?.from === 'nodes.answer.outputs.text',
     );
+
   function startLearningPipeline() {
     const lesson = learningWorkspace ?? createLearningWorkspace(state.locale);
     if (!learningWorkspace) {
@@ -650,6 +680,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     setOpenResources(undefined);
     setTourIndex(1);
   }
+
   function showTourStep(index: number) {
     if ([1, 2, 3, 5, 6].includes(index) && !learningWorkspace) {
       showTourStep(0);
@@ -664,6 +695,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     }
     setTourIndex(index);
   }
+
   function nextTourStep() {
     if (tourIndex === undefined) return;
     if (tourIndex === 0) startLearningPipeline();
@@ -673,14 +705,17 @@ export function WorkspaceApp({ initial }: { initial: State }) {
     } else if (tourIndex === tourSteps.length - 1) closeTour();
     else showTourStep(tourIndex + 1);
   }
+
   function closeTour() {
     setTourIndex(undefined);
+
     try {
       localStorage.setItem('knotra.tour.v1', 'dismissed');
     } catch {
       notify('tour.storageUnavailable');
     }
   }
+
   async function restoreWorkspace() {
     if (!restoring) return;
     try {
@@ -697,6 +732,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
       notify(error instanceof Error ? error.message : String(error));
     }
   }
+
   const inlineTour = tourIndex === 7 && section === 'inbox';
   const tourGuide =
     tourIndex !== undefined && !dialog ? (
@@ -729,6 +765,7 @@ export function WorkspaceApp({ initial }: { initial: State }) {
         onClose={closeTour}
       />
     ) : null;
+
   return (
     <ThemeContext.Provider value={state.theme}>
       <LocaleContext.Provider value={state.locale}>

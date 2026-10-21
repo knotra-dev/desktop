@@ -27,8 +27,10 @@ export function usePackageTransfer(
   const [pickedEntry, setPickedEntry] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
+
   async function importNative() {
     setBusy(true);
+
     try {
       const opened = await openPackage();
       if (opened) addWorkspace(opened);
@@ -38,9 +40,12 @@ export function usePackageTransfer(
       setBusy(false);
     }
   }
+
   async function importBrowser(files: File[]) {
     if (!files.length) return;
+
     setBusy(true);
+
     try {
       let opened: OpenedPackage;
       if (files.length === 1 && files[0].name.toLowerCase().endsWith('.zip')) {
@@ -51,10 +56,12 @@ export function usePackageTransfer(
         const bytes = unzipSync(new Uint8Array(await files[0].arrayBuffer()), {
           filter: (file) => {
             if (file.name.endsWith('/')) return false;
+
             size += file.originalSize;
             count++;
             if (count > 512 || size > 64 * 1024 * 1024 || !validPath(file.name))
               throw new Error('Archive exceeds package limits or contains an invalid path.');
+
             const folded = file.name.replace(/[A-Z]/g, (letter) => letter.toLowerCase());
             if (paths.has(folded)) throw new Error(`Duplicate package path: ${file.name}`);
             paths.add(folded);
@@ -65,6 +72,7 @@ export function usePackageTransfer(
           path,
           content: base64(content),
         }));
+
         const candidates = packageFiles.filter((f) => /\.ya?ml$/i.test(f.path));
         if (!candidates.length) throw new Error('Archive has no YAML entrypoint.');
         opened = {
@@ -82,6 +90,7 @@ export function usePackageTransfer(
           : first.name;
         opened = await browserPackage(files, entrypoint);
       }
+
       const all = [
         { path: opened.entrypoint, content: base64(textBytes(opened.source)) },
         ...opened.files,
@@ -93,6 +102,7 @@ export function usePackageTransfer(
         if (paths.has(folded)) throw new Error(`Duplicate package path: ${file.path}`);
         paths.add(folded);
       }
+
       const candidates = all
         .filter(
           (f) =>
@@ -129,14 +139,17 @@ export function usePackageTransfer(
       setBusy(false);
     }
   }
+
   function confirmEntry() {
     if (!pendingPackage) return;
+
     const all = [
       { path: pendingPackage.entrypoint, content: base64(textBytes(pendingPackage.source)) },
       ...pendingPackage.files,
     ];
     const file = all.find((f) => f.path === pickedEntry);
     if (!file) return;
+
     addWorkspace(
       allowedFiles({
         entrypoint: pickedEntry,
@@ -146,20 +159,25 @@ export function usePackageTransfer(
     );
     setPendingPackage(undefined);
   }
+
   async function exportCurrent() {
     if (!workspace) return;
+
     setBusy(true);
+
     try {
       if (validation.diagnostics.some((d) => d.severity === 'error'))
         throw new Error(
           'Resolve the local validation errors before exporting a runnable package. You can still save the draft or export a workspace backup.',
         );
+
       const name = validation.pipeline?.metadata.name ?? 'pipeline';
       const declared = allowedFiles({
         entrypoint: workspace.entrypoint,
         source: workspace.source,
         files: workspace.files,
       });
+
       if (desktop) {
         const path = await exportPackage(
           declared.entrypoint,
@@ -175,6 +193,7 @@ export function usePackageTransfer(
             ...declared.files,
           ].map((f) => [f.path, unbase64(f.content)]),
         );
+
         const zipped = zipSync(entries);
         const url = URL.createObjectURL(
           new Blob([Uint8Array.from(zipped).buffer], { type: 'application/zip' }),
@@ -192,10 +211,12 @@ export function usePackageTransfer(
       setBusy(false);
     }
   }
+
   function openImport() {
     if (desktop) void importNative();
     else setDialog('import');
   }
+
   return {
     busy,
     fileInput,

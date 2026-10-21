@@ -29,6 +29,7 @@ test('uploading a missing declared file preserves its declaration and restores a
   await expect(page.getByRole('heading', { name: 'Research brief', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(async () => (await activeWorkspace(page)).source).toBe(source);
+
   const saved = await activeWorkspace(page);
   expect(parse(saved.source).spec.files.filter((path: string) => path === 'check.mjs')).toEqual([
     'check.mjs',
@@ -47,6 +48,7 @@ test('uploading a missing declared file preserves its declaration and restores a
     buffer: Buffer.from('do not overwrite'),
   });
   await expect(page.getByRole('status')).toContainText('already exists');
+
   const download = page.waitForEvent('download');
   await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await download).path())!)));

@@ -7,6 +7,7 @@ import type { WorkspaceDialog } from './WorkspaceDialogs';
 export function useWorkspacePersistence(state: State, notify: (message: string) => void) {
   const stateRef = useRef(state);
   stateRef.current = state;
+
   useEffect(() => {
     const timer = setTimeout(
       () => {
@@ -16,19 +17,25 @@ export function useWorkspacePersistence(state: State, notify: (message: string) 
       },
       desktop ? 0 : 250,
     );
+
     return () => clearTimeout(timer);
   }, [state, notify]);
+
   useEffect(() => {
     const save = () => {
       void saveState(stateRef.current).catch(() => {});
     };
+
     window.addEventListener('beforeunload', save);
     return () => window.removeEventListener('beforeunload', save);
   }, []);
+
   useEffect(() => {
     if (!desktop) return;
+
     let release: (() => void) | undefined;
     let disposed = false;
+
     void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
       const window = getCurrentWindow();
       const unlisten = await window.onCloseRequested(async (event) => {
@@ -43,11 +50,13 @@ export function useWorkspacePersistence(state: State, notify: (message: string) 
       if (disposed) unlisten();
       else release = unlisten;
     });
+
     return () => {
       disposed = true;
       release?.();
     };
   }, [notify]);
+
   return stateRef;
 }
 
@@ -62,11 +71,13 @@ export function useWorkspaceShortcuts(
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
+
       if (e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setQuery('');
         setDialog('search');
       }
+
       if (e.key.toLowerCase() === 's') {
         e.preventDefault();
         if (section !== 'pipelines' || pipelinePage !== 'editor' || dialog) return;
@@ -91,11 +102,13 @@ export function useWorkspaceShortcuts(
           });
         } else saveDraft();
       }
+
       if (e.key.toLowerCase() === 'n') {
         e.preventDefault();
         setDialog('library');
       }
     };
+
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
   }, [saveDraft, section, pipelinePage, dialog, setDialog, setQuery]);

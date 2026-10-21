@@ -43,6 +43,7 @@ test('fresh launch starts empty and only lists starters the user chooses', async
   await page.reload();
   await expect(page.locator('.pipeline-card')).toHaveCount(2);
   await expect(page.locator('.graph-view')).toHaveCount(0);
+
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), key);
   expect(saved.starterRevision).toBe(5);
   expect(
@@ -91,6 +92,7 @@ test('deleting the last chosen starter keeps the workspace empty after reload', 
     page.getByRole('heading', { name: 'Create your first pipeline', exact: true }),
   ).toBeVisible();
   await expect(page.locator('.sidebar-pipelines > button')).toHaveCount(0);
+
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), key);
   expect(saved.workspaces).toEqual([]);
   expect(saved.starterRevision).toBe(5);
@@ -114,9 +116,11 @@ test('unreadable local data remains downloadable and a reviewed legacy backup re
     page.getByRole('heading', { name: 'Could not open the saved workspace' }),
   ).toBeVisible();
   expect(await page.evaluate((key) => localStorage.getItem(key), key)).toBe(raw);
+
   const downloaded = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download original data' }).click();
   expect(readFileSync((await (await downloaded).path())!, 'utf8')).toBe(raw);
+
   const source = readFileSync('vendor/engine/examples/starter/hello/pipeline.yaml', 'utf8');
   const backup = {
     version: 1,
@@ -151,6 +155,7 @@ test('unreadable local data remains downloadable and a reviewed legacy backup re
   await page.reload();
   await expect(page.locator('.pipeline-card')).toHaveCount(1);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+
   const restored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), key);
   expect(restored.workspaces).toEqual(backup.workspaces);
   expect(restored.starterRevision).toBe(5);
@@ -169,6 +174,7 @@ test('a disconnected starter directs execution to engine settings', async ({ pag
 
 test.describe('Russian starter workspace', () => {
   test.use({ locale: 'ru-RU' });
+
   test('starts localized and keeps list and library legible in the light theme', async ({
     page,
   }, testInfo) => {

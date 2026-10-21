@@ -3,9 +3,11 @@ import { type Graph, type NodeDefinition, type Port, record } from './types';
 export function references(value: unknown): string[] {
   if (!value || typeof value !== 'object') return [];
   if (Array.isArray(value)) return value.flatMap(references);
+
   const result: string[] = [];
   for (const [key, item] of Object.entries(value)) {
     if (key === 'value') continue;
+
     if (typeof item === 'string' && key === 'from') result.push(item);
     else if (typeof item === 'string' && ['expr', 'when', 'until'].includes(key)) {
       // Static references only. Full CEL parsing/typechecking belongs to the engine.
@@ -20,6 +22,7 @@ export function references(value: unknown): string[] {
       );
     } else if (!['body', 'state'].includes(key)) result.push(...references(item));
   }
+
   return [...new Set(result)];
 }
 
@@ -52,6 +55,7 @@ export function nodePorts(
         iterations: { schema: { type: 'integer' } },
         termination: { schema: { type: 'string' } },
       };
+
     return Object.fromEntries(
       Object.entries(outputs).map(([key, port]) => [
         key,
@@ -62,6 +66,7 @@ export function nodePorts(
     );
   }
   if (node.type === 'pipeline') return files.get(String(record(node.pipeline).file))?.outputs ?? {};
+
   return node.outputs ?? {};
 }
 
@@ -70,12 +75,14 @@ export function graphOrder(graph: Graph): { order: string[]; cycle: string[] } {
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const cycle = new Set<string>();
+
   function visit(id: string) {
     if (visiting.has(id)) {
       cycle.add(id);
       return;
     }
     if (visited.has(id) || !graph.nodes[id]) return;
+
     visiting.add(id);
     for (const dep of dependencies(graph.nodes[id])) visit(dep);
     visiting.delete(id);
@@ -83,12 +90,14 @@ export function graphOrder(graph: Graph): { order: string[]; cycle: string[] } {
     order.push(id);
   }
   Object.keys(graph.nodes).forEach(visit);
+
   return { order, cycle: [...cycle] };
 }
 
 export function portType(port: Port): string {
   if (port.artifact) return port.artifact.collection ? 'files' : 'file';
   if (port.schemaRef) return port.schemaRef;
+
   const schema = record(port.schema);
   return Array.isArray(schema.type)
     ? schema.type.join(' | ')

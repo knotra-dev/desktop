@@ -114,6 +114,7 @@ test('authoring stays synchronized and navigation preference survives reload', a
     .poll(async () => (await activeWorkspace(page)).source.includes('Check the sources carefully'))
     .toBe(true);
   await expect(page.getByRole('button', { name: 'Run demo', exact: true })).toHaveCount(0);
+
   const expandedWidth = (await page.locator('.app-sidebar').boundingBox())!.width;
   await page.getByRole('button', { name: 'Collapse navigation' }).click();
   await expect
@@ -139,6 +140,7 @@ test('authoring stays synchronized and navigation preference survives reload', a
   await expect(page.getByRole('heading', { name: 'Models & tools' })).toBeVisible();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('checkbox', { name: 'Compact navigation' })).toHaveCount(0);
+
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
   const backup = JSON.parse(readFileSync((await (await download).path())!, 'utf8'));
@@ -183,6 +185,7 @@ test('complete ZIP package import preserves child contracts and every exported b
       .locator('.inspector .port-editor-card')
       .filter({ has: page.locator('strong').filter({ hasText: /^reply$/ }) }),
   ).toBeVisible();
+
   const download = page.waitForEvent('download');
   await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await download).path())!)));
@@ -208,6 +211,7 @@ for (const theme of ['dark', 'light'] as const)
     await editor.fill('# readable comment\nanswer: 12\napproved: true\nmessage: hello');
     await expect(page.locator('.knotra-scalar-number')).toHaveText('12');
     await expect(page.locator('.knotra-scalar-boolean')).toHaveText('true');
+
     const contrast = await page.locator('.cm-content span').evaluateAll((spans) => {
       const linear = (x: number) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
       const luminance = (color: string) => {
@@ -220,6 +224,7 @@ for (const theme of ['dark', 'light'] as const)
       const background = luminance(
         getComputedStyle(document.querySelector('.cm-editor')!).backgroundColor,
       );
+
       return spans.map((span) => {
         const foreground = luminance(getComputedStyle(span).color);
         return (
@@ -227,6 +232,7 @@ for (const theme of ['dark', 'light'] as const)
         );
       });
     });
+
     expect(contrast.length).toBeGreaterThan(3);
     expect(Math.min(...contrast)).toBeGreaterThanOrEqual(4.5);
     await expect.poll(async () => (await activeWorkspace(page)).source).toContain('answer: 12');
@@ -294,6 +300,7 @@ test('build and configure blocks with named ports, drag connections and workflow
   await page.getByRole('button', { name: 'discover output result', exact: true }).click();
   await page.getByRole('button', { name: 'human input brief', exact: true }).click();
   await expect(page.getByRole('status')).toContainText('different data types');
+
   // Move a block without changing pipeline notation; remember its layout after reload.
   const originalPosition = (await activeWorkspace(page)).positions['::human'];
   const card = page.locator('.react-flow__node[data-id="human"] .flow-card-top');
@@ -305,6 +312,7 @@ test('build and configure blocks with named ports, drag connections and workflow
   await expect
     .poll(async () => (await activeWorkspace(page)).positions?.['::human'])
     .not.toEqual(originalPosition);
+
   const position = (await activeWorkspace(page)).positions['::human'];
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
   await page.getByText('Advanced resource bindings', { exact: true }).click();
@@ -342,10 +350,12 @@ test('build and configure blocks with named ports, drag connections and workflow
       toggle: Math.abs(logo.y + logo.height / 2 - toggle.y - toggle.height / 2),
     };
   });
+
   expect(centers.dot).toBeLessThan(1);
   expect(centers.toggle).toBeLessThan(1);
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect.poll(async () => (await activeWorkspace(page)).source).toContain('maxSteps: 7');
+
   const source = (await activeWorkspace(page)).source;
   expect(source).toContain('connection: local_model');
   expect(source).toContain('model: assistant');
@@ -430,6 +440,7 @@ for (const theme of ['dark', 'light'] as const)
           }),
         )
         .toBe(true);
+
       const binding = page.locator('.binding-editor').first();
       await binding.scrollIntoViewIfNeeded();
       const geometry = await binding.evaluate((element) => {
@@ -444,6 +455,7 @@ for (const theme of ['dark', 'light'] as const)
           fits: picker.right <= bounds.right + 1 && advanced.right <= bounds.right + 1,
         };
       });
+
       expect(geometry).toEqual({ fullWidth: true, stacked: true, fits: true });
       await page.screenshot({
         path: test.info().outputPath(`knotra-source-${theme}-${width}.png`),
