@@ -155,7 +155,7 @@ test('deleting the learning pipeline lets replay create exactly one replacement'
   await page.getByRole('button', { name: 'Restart tour', exact: true }).click();
   await tour(page).getByRole('button', { name: 'Create learning pipeline', exact: true }).click();
   await expect(page.locator('.sidebar-pipelines > button')).toHaveCount(1);
-  expect((await savedWorkspace(page)).workspaces).toHaveLength(1);
+  await expect.poll(async () => (await savedWorkspace(page)).workspaces).toHaveLength(1);
 });
 
 test('replay preserves a lesson changed beyond its starting blocks and offers a fresh one', async ({
@@ -246,7 +246,9 @@ test('learning pipeline runs on a real engine and delivers its answer to human r
     .click();
   await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint!);
   await page.getByRole('button', { name: 'Connect engine', exact: true }).click();
-  await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
+  const connection = page.locator('[data-tour="engine"]');
+  await expect(connection.getByText('Connected', { exact: true })).toBeVisible();
+  await expect(connection.getByText('knotra.desktop/1', { exact: true })).toBeVisible();
   await tour(page).getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Source', exact: true })).toHaveValue(
     'model_main',

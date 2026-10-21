@@ -788,6 +788,12 @@ for (const viewport of [
     await expect(page.getByRole('list', { name: 'Saved model sources' })).toContainText('Tour API');
     await page.getByRole('button', { name: 'Resources', exact: true }).click();
     await expect(page.locator('.workspace-tour-target')).toBeVisible();
+    const settings = (await page
+      .getByRole('button', { name: 'Settings', exact: true })
+      .boundingBox())!;
+    await expect
+      .poll(async () => (await page.locator('.workspace-tour-target').boundingBox())?.x ?? Infinity)
+      .toBeLessThanOrEqual(settings.x);
     await expect(guide).toHaveCSS('position', 'fixed');
     await guide.getByRole('button', { name: 'Skip model setup', exact: true }).click();
     await expect(guide).toContainText('6 of 8');

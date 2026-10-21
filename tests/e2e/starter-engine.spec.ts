@@ -34,7 +34,9 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint!);
   await page.getByRole('button', { name: 'Connect engine' }).click();
-  await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
+  const connection = page.locator('[data-tour="engine"]');
+  await expect(connection.getByText('Connected', { exact: true })).toBeVisible();
+  await expect(connection.getByText('knotra.desktop/1', { exact: true })).toBeVisible();
   await expect(page.getByText(/\d+ profiles · \d+ resources/)).toBeVisible();
 });
 

@@ -64,7 +64,9 @@ test('publication waits for approval, preserves editing feedback, and exports th
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint!);
     await page.getByRole('button', { name: 'Connect engine', exact: true }).click();
-    await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
+    const connection = page.locator('[data-tour="engine"]');
+    await expect(connection.getByText('Connected', { exact: true })).toBeVisible();
+    await expect(connection.getByText('knotra.desktop/1', { exact: true })).toBeVisible();
     await addStarterPipeline(page, 'From brief to reviewed publication');
     const title = `Publication acceptance ${randomUUID().slice(0, 8)}`;
     await page.getByRole('button', { name: 'Workflow', exact: true }).click();

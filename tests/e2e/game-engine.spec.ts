@@ -32,7 +32,9 @@ test('engine code-test loop builds an independently verified game that plays fro
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('textbox', { name: 'Engine base URL' }).fill(endpoint!);
     await page.getByRole('button', { name: 'Connect engine' }).click();
-    await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
+    const connection = page.locator('[data-tour="engine"]');
+    await expect(connection.getByText('Connected', { exact: true })).toBeVisible();
+    await expect(connection.getByText('knotra.desktop/1', { exact: true })).toBeVisible();
     await addStarterPipeline(page, 'Build a playable game');
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.getByRole('combobox', { name: 'Engine profile' }).selectOption('local');
