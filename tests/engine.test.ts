@@ -12,7 +12,36 @@ import {
 import { enginePackage } from '../src/lib/engine/package';
 import type { EngineCache } from '../src/lib/engine/types';
 import { assertEngineModel } from '../src/lib/engine/validation';
+import { examples, fromExample } from '../src/lib/examples';
 import { freshState, readBackup } from '../src/lib/storage';
+
+const helloExample = examples.find((example) => example.id === 'hello')!;
+
+it('validates a replacement engine address before disconnecting the current session', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      Response.json({
+        protocol: 'knotra.desktop/1',
+        engineId: 'kept-engine',
+        principalId: 'local',
+        version: '1',
+        capabilities: [],
+      }),
+    ),
+  );
+  try {
+    await connectEngine('http://localhost:8080');
+    const previous = engineSessionKey();
+    await expect(connectEngine('http://remote.example.com')).rejects.toMatchObject({
+      code: 'input',
+    });
+    expect(engineSessionKey()).toBe(previous);
+  } finally {
+    await disconnectEngine();
+    vi.unstubAllGlobals();
+  }
+});
 
 describe('durable event framing', () => {
   it('handles arbitrary boundaries, CRLF, multiline data and heartbeat comments', () => {
@@ -126,7 +155,7 @@ it('requests safe previews for run refresh, admission receipts and human review'
     createdAt: '2026-10-04T00:00:00Z',
     updatedAt: '2026-10-04T00:00:00Z',
     profile: 'local',
-    package: enginePackage(freshState().workspaces[0]),
+    package: enginePackage(fromExample(helloExample)),
     inputs: { safe: 'kept' },
     inputArtifacts: {},
     outputs: {},
@@ -281,7 +310,7 @@ it('recovers retained unsafe commands while rejecting new unsafe commands', asyn
     await expect(
       engineCall({
         op: 'validate',
-        package: enginePackage(freshState().workspaces[0]),
+        package: enginePackage(fromExample(helloExample)),
         profile: 'local',
         inputs: start.inputs,
         artifacts: {},
@@ -312,7 +341,7 @@ it('does not overwrite the last valid cached page with a malformed read model', 
         createdAt: '2026-10-04T00:00:00Z',
         updatedAt: '2026-10-04T00:00:00Z',
         profile: 'local',
-        package: enginePackage(freshState().workspaces[0]),
+        package: enginePackage(fromExample(helloExample)),
         inputs: {},
         inputArtifacts: {},
         outputs: {},
@@ -433,7 +462,8 @@ it('checks engine models against the documented contract rather than trusting JS
 });
 
 it('restores complete authoring bytes and rejects ambiguous or hostile backups', () => {
-  const original = freshState();
+  const workspace = fromExample(helloExample);
+  const original = { ...freshState(), workspaces: [workspace], activeId: workspace.id };
   original.theme = 'light';
   expect(readBackup(JSON.stringify(original))).toEqual(original);
   original.workspaces.push(original.workspaces[0]);
@@ -444,7 +474,8 @@ it('restores complete authoring bytes and rejects ambiguous or hostile backups',
 });
 
 it('uses the engine ASCII path folding rules when restoring supporting files', () => {
-  const original = freshState();
+  const workspace = fromExample(helloExample);
+  const original = { ...freshState(), workspaces: [workspace], activeId: workspace.id };
   original.workspaces[0].files = [
     { path: 'Ä.txt', content: 'AA==' },
     { path: 'ä.txt', content: 'AA==' },

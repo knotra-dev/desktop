@@ -8,6 +8,7 @@ import {
   File,
   FileText,
   FolderOpen,
+  MoreHorizontal,
   Play,
   Plus,
   Save,
@@ -16,7 +17,7 @@ import {
   Workflow,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { parseDocument } from 'yaml';
 import SourceEditor from '../../components/editor/SourceEditor';
 import GraphView from '../../components/graph/GraphView';
@@ -24,8 +25,20 @@ import { Empty, size } from '../../components/ui';
 import { base64, decodeText, textBytes, unbase64 } from '../../lib/bytes';
 import { connectionError, type PortConnection } from '../../lib/connections';
 import { editorLayerKeys } from '../../lib/editorLabels';
+import type { Resource } from '../../lib/engine/types';
 import { useI18n } from '../../lib/i18n';
-import { type Graph, record, type Validation, type Workspace } from '../../lib/types';
+import { desktop } from '../../lib/native';
+import { agentMcpSelection, nodeMcpResponseDefaults, nodeMcpSelection } from '../../lib/nodeMcp';
+import { nodeModelSelection } from '../../lib/nodeModel';
+import { nodeSandboxSelection } from '../../lib/nodeSandbox';
+import type { SavedConnection, SavedMcpConnection } from '../../lib/setup';
+import {
+  type DataSchema,
+  type Graph,
+  record,
+  type Validation,
+  type Workspace,
+} from '../../lib/types';
 import { parsePipeline, validatePipeline } from '../../lib/validation';
 import Inspector from './Inspector';
 import WorkflowSetup from './WorkflowSetup';
@@ -36,19 +49,33 @@ export default function WorkspaceView({
   onChange,
   onSave,
   onExport,
-  onRun,
   onLibrary,
   onAddNode,
   onDelete,
   onNotify,
-  demo,
   engineConnected,
   onEngineRun,
   resourcesRequested,
+  nodeRequested,
+  nodeResourceRequested,
+  engineResources = [],
+  modelConnections = [],
+  mcpConnections = [],
+  onConnectModels,
+  onConnectMcp,
+  onConnectSandboxes,
 }: {
   engineConnected?: boolean;
+  engineResources?: Resource[];
+  modelConnections?: SavedConnection[];
+  mcpConnections?: SavedMcpConnection[];
+  onConnectModels?: () => void;
+  onConnectMcp?: () => void;
+  onConnectSandboxes?: () => void;
   onEngineRun: () => void;
   resourcesRequested?: 'models' | 'mcp' | 'sandboxes' | 'secrets';
+  nodeRequested?: string;
+  nodeResourceRequested?: 'models' | 'mcp' | 'sandboxes' | 'secrets';
   workspace?: Workspace;
   validation: Validation;
   onChange: (
@@ -58,12 +85,10 @@ export default function WorkspaceView({
   ) => void;
   onSave: () => void;
   onExport: () => void;
-  onRun: () => void;
   onLibrary: () => void;
   onAddNode: (scope: string[]) => void;
   onDelete: () => void;
   onNotify: (message: string) => void;
-  demo: boolean;
 }) {
   const { t, locale, message } = useI18n();
   const [showPorts, setShowPorts] = useState(false);
@@ -77,7 +102,22 @@ export default function WorkspaceView({
         ? 'research'
         : (Object.keys(validation.pipeline?.spec.nodes ?? {})[0] ?? ''),
   );
+  useEffect(() => {
+    if (nodeRequested) {
+      const path = nodeRequested.split('/');
+      setView('graph');
+      setShowPorts(false);
+      setScope(path.slice(0, -1));
+      setSelected(path.at(-1) ?? '');
+    }
+  }, [nodeRequested]);
   const [requestedScope, setScope] = useState<string[]>([]);
+  useEffect(() => {
+    if (!resourcesRequested) return;
+    setView(resourcesRequested === 'secrets' ? 'source' : 'graph');
+    setSelected('');
+    setScope([]);
+  }, [resourcesRequested]);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string>();
   const [removeNode, setRemoveNode] = useState(false);
@@ -108,16 +148,66 @@ export default function WorkspaceView({
     return graphs;
   }, [workspace?.files]);
   const node = selected ? graph?.nodes[selected] : undefined;
-  const knownNodes = useRef(new Set(Object.keys(graph?.nodes ?? {})));
+  const scopeKey = scope.join('/');
+  useEffect(() => {
+    if (!nodeRequested || !nodeResourceRequested) return;
+    const path = nodeRequested.split('/');
+    if (selected !== path.at(-1) || scopeKey !== path.slice(0, -1).join('/')) return;
+    const target = document.querySelector(
+      nodeResourceRequested === 'models'
+        ? '[data-tour="node-model"]'
+        : nodeResourceRequested === 'sandboxes'
+          ? '[data-tour="node-sandbox"]'
+          : '[data-tour="node-mcp"]',
+    );
+    target?.scrollIntoView({ block: 'start' });
+    target?.querySelector<HTMLElement>('select, input, button')?.focus({ preventScroll: true });
+  }, [nodeRequested, nodeResourceRequested, selected, scopeKey]);
+  const resourceLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(graph?.nodes ?? {}).map(([id, node]) => {
+          let label: string | undefined;
+          if (['llm', 'agent'].includes(node.type)) {
+            const model = pipeline?.spec.models?.[String(record(node[node.type]).model)];
+            const source = modelConnections.find((source) => source.id === model?.connection);
+            const modelId = model?.model ?? source?.defaultModel;
+            label =
+              source?.models.find((model) => model.id === modelId)?.name ??
+              (typeof modelId === 'string' ? modelId : source?.title);
+          } else if (node.type === 'code') {
+            const profile = String(pipeline?.spec.sandboxes?.[node.sandbox ?? '']?.profile ?? '');
+            const environment = engineResources.find(
+              (resource) => resource.kind === 'sandbox' && resource.id === profile,
+            );
+            if (
+              environment &&
+              environment.title !== profile &&
+              !environment.title.endsWith(` / ${profile}`)
+            )
+              label = environment.title;
+            else if (profile === 'python_box') label = t('resources.pythonSandbox');
+            else if (profile === 'node_box') label = t('resources.nodeSandbox');
+            else if (profile) label = profile.replace(/[_-]+/g, ' ');
+          }
+          return [id, label];
+        }),
+      ),
+    [graph, pipeline, modelConnections, engineResources, t],
+  );
+  const knownNodes = useRef({ scope: scopeKey, ids: new Set(Object.keys(graph?.nodes ?? {})) });
   useEffect(() => {
     if (!graph) return;
-    const added = Object.keys(graph.nodes).find((id) => !knownNodes.current.has(id));
-    knownNodes.current = new Set(Object.keys(graph.nodes));
+    const added =
+      knownNodes.current.scope === scopeKey
+        ? Object.keys(graph.nodes).find((id) => !knownNodes.current.ids.has(id))
+        : undefined;
+    knownNodes.current = { scope: scopeKey, ids: new Set(Object.keys(graph.nodes)) };
     if (added) {
       setSelected(added);
       setShowPorts(false);
     } else if (selected && !graph.nodes[selected]) setSelected(Object.keys(graph.nodes)[0] ?? '');
-  }, [graph, selected]);
+  }, [graph, selected, scopeKey]);
   const errors = validation.diagnostics.filter((d) => d.severity === 'error');
   function mutate(action: (document: ReturnType<typeof parseDocument>, path: string[]) => void) {
     if (!workspace || !pipeline) return;
@@ -198,29 +288,42 @@ export default function WorkspaceView({
     }
   return (
     <div className="workspace-view flex flex-col h-full min-h-112.5">
-      <header className="workspace-header flex items-center justify-between gap-5 pt-3.75 pb-3.5 shrink-0 px-6">
-        <div className="workspace-title flex items-center gap-2.5 min-w-0">
-          <h1 title={pipeline?.metadata.description}>
-            <span>
-              {pipeline?.metadata.title ?? pipeline?.metadata.name ?? t('editor.pipelineDraft')}
-            </span>
-          </h1>
-          {workspace.source !== workspace.savedSource ? (
+      <header className="workspace-header flex shrink-0 items-center justify-between gap-6 px-6 py-3">
+        <div className="workspace-title min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 title={pipeline?.metadata.title ?? pipeline?.metadata.name}>
+              <span>
+                {pipeline?.metadata.title ?? pipeline?.metadata.name ?? t('editor.pipelineDraft')}
+              </span>
+            </h1>
             <span
-              className="unsaved-dot title-unsaved"
-              role="img"
-              title={t('editor.unsavedDraft')}
-              aria-label={t('editor.unsavedDraft')}
-            />
-          ) : null}
-          <span className="heading-version [font-family:ui-monospace,_monospace] text-muted border border-solid border-line text-[9px] rounded-[5px] px-1.5 py-0.5">
-            {pipeline?.metadata.version ? `v${pipeline.metadata.version}` : t('editor.draft')}
-          </span>
+              className="heading-version max-w-32 truncate text-[11px] text-muted"
+              title={pipeline?.metadata.version ? `v${pipeline.metadata.version}` : undefined}
+            >
+              {pipeline?.metadata.version ? `v${pipeline.metadata.version}` : t('editor.draft')}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center gap-2 text-[11px] leading-4 text-muted">
+            <span className="inline-flex items-center gap-1.5" aria-live="polite">
+              {workspace.source !== workspace.savedSource ? (
+                <span className="unsaved-dot title-unsaved" aria-hidden="true" />
+              ) : null}
+              {t(
+                workspace.source !== workspace.savedSource
+                  ? 'editor.unsavedDraft'
+                  : 'editor.savedLocally',
+              )}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="node-count">
+              {t('editor.countNodes', { count: graph ? Object.keys(graph.nodes).length : '—' })}
+            </span>
+          </div>
         </div>
-        <div className="heading-actions flex items-center gap-2.5">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             type="button"
-            className="button small-button text-[11px] min-h-8 px-3 py-1.75"
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-[12px] text-secondary transition-colors duration-150 hover:bg-surface-raised"
             onClick={onSave}
             title={t('editor.saveLocalDraftCtrlS')}
           >
@@ -229,47 +332,33 @@ export default function WorkspaceView({
           </button>
           <button
             type="button"
-            className="button small-button text-[11px] min-h-8 px-3 py-1.75"
-            onClick={onExport}
-          >
-            <Download size={14} />
-            {t('common.export')}
-          </button>
-          <button
-            type="button"
-            className="button small-button primary text-[11px] min-h-8 px-3 py-1.75"
+            className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-accent px-4 text-[12px] font-medium text-[var(--base)] transition-opacity duration-150 hover:enabled:opacity-85"
             onClick={onEngineRun}
+            data-tour="run"
             disabled={errors.length > 0}
             title={t(
               engineConnected
                 ? 'editor.checkAndStartOnYourEngine'
-                : 'editor.connectAnEngineInSettings',
+                : desktop
+                  ? 'modelSetup.connectHint'
+                  : 'editor.connectAnEngineInSettings',
             )}
           >
             <Play size={14} />
-            {t(engineConnected ? 'common.run' : 'resources.connectEngine')}
+            {t(
+              engineConnected
+                ? 'common.run'
+                : desktop
+                  ? 'modelSetup.connectAction'
+                  : 'resources.connectEngine',
+            )}
           </button>
-          {demo || pipeline?.metadata.name === 'research-brief' ? (
-            <button
-              type="button"
-              className="button small-button primary text-[11px] min-h-8 px-3 py-1.75"
-              onClick={onRun}
-              disabled={!demo || errors.length > 0}
-              title={t(
-                demo
-                  ? 'editor.runTheGuidedDemoWithSampleOutputs'
-                  : 'editor.theUnchangedResearchBriefTemplateOffersAGuided',
-              )}
-            >
-              <Play size={14} fill="currentColor" />
-              {t('editor.runDemo')}
-            </button>
-          ) : null}
+          <PipelineActions key={workspace.id} onExport={onExport} onDelete={onDelete} />
         </div>
       </header>
-      <div className="workspace-toolbar flex justify-between items-center gap-3 pt-0 pb-3.25 bg-transparent min-h-12.25 px-6">
+      <div className="workspace-toolbar flex h-12 shrink-0 items-center justify-between gap-4 px-6">
         <div
-          className="segmented flex gap-1 bg-surface border border-solid border-line rounded-[30px] p-1"
+          className="flex h-full shrink-0 items-stretch gap-1"
           role="tablist"
           aria-label={t('editor.pipelineView')}
         >
@@ -277,7 +366,7 @@ export default function WorkspaceView({
             type="button"
             role="tab"
             aria-selected={view === 'graph'}
-            className={view === 'graph' ? 'active' : ''}
+            className={`inline-flex items-center gap-2 border-b-2 border-solid px-3 text-[12px] transition-colors duration-150 ${view === 'graph' ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-foreground'}`}
             onClick={() => setView('graph')}
           >
             <Workflow size={15} />
@@ -287,7 +376,7 @@ export default function WorkspaceView({
             type="button"
             role="tab"
             aria-selected={view === 'source'}
-            className={view === 'source' ? 'active' : ''}
+            className={`inline-flex items-center gap-2 border-b-2 border-solid px-3 text-[12px] transition-colors duration-150 ${view === 'source' ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-foreground'}`}
             onClick={() => setView('source')}
           >
             <Braces size={15} />
@@ -297,56 +386,43 @@ export default function WorkspaceView({
             type="button"
             role="tab"
             aria-selected={view === 'files'}
-            className={view === 'files' ? 'active' : ''}
+            className={`inline-flex items-center gap-2 border-b-2 border-solid px-3 text-[12px] transition-colors duration-150 ${view === 'files' ? 'border-accent text-accent' : 'border-transparent text-muted hover:text-foreground'}`}
             onClick={() => setView('files')}
           >
             <FolderOpen size={15} />
             {t('editor.files')}
-            <span className="counter text-[9px] bg-surface-active rounded-[3px] text-secondary px-1 py-px">
+            <span className="counter text-[11px] text-muted tabular-nums">
               {workspace.files.length + 1}
             </span>
           </button>
         </div>
-        <div className="inline-row flex items-center gap-2.5">
-          <span className="editor-guidance text-[10px] text-muted">
-            {t('editor.dragAnOutputToAnInputSelectA')}
-          </span>
-          <button
-            type="button"
-            className="button small-button text-[11px] min-h-8 px-3 py-1.75"
-            onClick={() => {
-              setView('graph');
-              setSelected('');
-            }}
-            disabled={!pipeline}
-          >
-            <Settings2 size={14} />
-            {t('editor.workflow')}
-          </button>
-          <span className="small muted node-count text-[11px] text-muted">
-            {t('editor.countNodes', {
-              count: pipeline ? Object.keys(pipeline.spec.nodes).length : '—',
-            })}
-          </span>
-          <button
-            type="button"
-            className="button small-button text-[11px] min-h-8 px-3 py-1.75"
-            onClick={() => onAddNode(scope)}
-            disabled={!pipeline}
-          >
-            <Plus size={15} />
-            {t('editor.addNode')}
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={onDelete}
-            aria-label={t('editor.deletePipeline')}
-            title={t('editor.deletePipeline')}
-          >
-            <Trash2 size={15} />
-          </button>
-        </div>
+        {view === 'graph' ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[12px] text-secondary transition-colors duration-150 hover:bg-surface-raised aria-pressed:bg-surface-raised"
+              aria-pressed={!selected}
+              onClick={() => {
+                setView('graph');
+                setSelected('');
+              }}
+              disabled={!pipeline}
+            >
+              <Settings2 size={14} />
+              {t('editor.workflow')}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-2 whitespace-nowrap rounded-lg border border-solid border-line-strong px-3 text-[12px] text-foreground transition-colors duration-150 hover:bg-surface-raised"
+              data-tour="add-node"
+              onClick={() => onAddNode(scope)}
+              disabled={!pipeline}
+            >
+              <Plus size={15} />
+              {t('editor.addNode')}
+            </button>
+          </div>
+        ) : null}
       </div>
       {scope.length ? (
         <div className="scope-bar flex items-center justify-between text-[11px] border-b border-solid border-b-[var(--line)] text-muted bg-surface px-6.25 py-2.5">
@@ -375,6 +451,7 @@ export default function WorkspaceView({
               <GraphView
                 key={workspace.id + scope.join('/')}
                 graph={graph}
+                resourceLabels={resourceLabels}
                 positions={Object.fromEntries(
                   Object.entries(workspace.positions ?? {})
                     .filter(([key]) => key.startsWith(`${scope.join('/')}::`))
@@ -414,7 +491,107 @@ export default function WorkspaceView({
                   onWorkflow={() => setSelected('')}
                   key={selected + scope.join('/')}
                   resources={pipeline.spec}
+                  modelConnections={modelConnections}
+                  mcpConnections={mcpConnections}
+                  engineResources={engineConnected ? engineResources : []}
+                  engineConnected={engineConnected}
+                  onConnectModels={onConnectModels}
+                  onConnectMcp={onConnectMcp}
+                  onConnectSandboxes={onConnectSandboxes}
+                  onSandboxChange={(profile) => {
+                    const selection = nodeSandboxSelection(pipeline, scope, selected, profile);
+                    if (!selection) return;
+                    mutate((doc, path) => {
+                      doc.setIn(['spec', 'sandboxes', selection.alias], selection.resource);
+                      doc.setIn([...path, 'nodes', selected, 'sandbox'], selection.alias);
+                    });
+                  }}
+                  onMcpResponse={(response: 'structured' | 'content', schema: DataSchema) =>
+                    mutate((doc, path) => {
+                      doc.setIn([...path, 'nodes', selected, 'tool', 'response'], response);
+                      doc.deleteIn([...path, 'nodes', selected, 'outputs', 'result', 'schemaRef']);
+                      doc.setIn(
+                        [...path, 'nodes', selected, 'outputs', 'result', 'schema'],
+                        schema,
+                      );
+                    })
+                  }
+                  onMcpChange={(connection, tool, enabled) => {
+                    if (node.type === 'agent') {
+                      const selection = agentMcpSelection(
+                        pipeline,
+                        scope,
+                        selected,
+                        connection,
+                        tool,
+                        !!enabled,
+                      );
+                      if (!selection) return;
+                      mutate((doc, path) => {
+                        if (selection.alias && selection.resource)
+                          doc.setIn(['spec', 'mcp', selection.alias], selection.resource);
+                        doc.setIn([...path, 'nodes', selected, 'tools'], selection.tools);
+                      });
+                    } else {
+                      const selection = nodeMcpSelection(pipeline, scope, selected, connection);
+                      if (!selection) return;
+                      const current = record(node.tool);
+                      const previous = mcpConnections
+                        .find(
+                          (source) =>
+                            source.id === pipeline.spec.mcp?.[String(current.server)]?.connection,
+                        )
+                        ?.tools.find((tool) => tool.name === current.name);
+                      const next = mcpConnections
+                        .find((source) => source.id === connection)
+                        ?.tools.find((item) => item.name === tool);
+                      const defaults = nodeMcpResponseDefaults(node, next, previous);
+                      mutate((doc, path) => {
+                        doc.setIn(['spec', 'mcp', selection.alias], selection.resource);
+                        doc.setIn([...path, 'nodes', selected, 'tool', 'server'], selection.alias);
+                        doc.setIn([...path, 'nodes', selected, 'tool', 'name'], tool);
+                        if (defaults) {
+                          doc.setIn(
+                            [...path, 'nodes', selected, 'tool', 'response'],
+                            defaults.response,
+                          );
+                          doc.setIn(
+                            [...path, 'nodes', selected, 'outputs', 'result', 'schema'],
+                            defaults.schema,
+                          );
+                        }
+                      });
+                    }
+                  }}
+                  onModelChange={(connection, model, parameters) => {
+                    const selection = nodeModelSelection(
+                      pipeline,
+                      scope,
+                      selected,
+                      connection,
+                      model,
+                      parameters,
+                    );
+                    if (!selection) return;
+                    mutate((doc, path) => {
+                      doc.setIn(['spec', 'models', selection.alias], selection.resource);
+                      doc.setIn([...path, 'nodes', selected, node.type, 'model'], selection.alias);
+                    });
+                  }}
                   files={workspace.files.map((file) => file.path)}
+                  promptFiles={workspace.files
+                    .filter((file) => {
+                      if (!pipeline.spec.files?.includes(file.path)) return false;
+                      try {
+                        return (
+                          unbase64(file.content).length <= 1048576 &&
+                          !!decodeText(file.content).trim()
+                        );
+                      } catch {
+                        return false;
+                      }
+                    })
+                    .map((file) => file.path)}
                   onNotify={onNotify}
                   id={selected}
                   node={node}
@@ -441,7 +618,8 @@ export default function WorkspaceView({
                 />
               ) : (
                 <WorkflowSetup
-                  showResources={!!resourcesRequested && resourcesRequested !== 'secrets'}
+                  showResources={resourcesRequested === 'secrets' ? undefined : resourcesRequested}
+                  engineResources={engineConnected ? engineResources : []}
                   pipeline={pipeline}
                   graph={graph}
                   imports={importedGraphs}
@@ -673,6 +851,133 @@ export default function WorkspaceView({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function PipelineActions({ onExport, onDelete }: { onExport: () => void; onDelete: () => void }) {
+  const { t } = useI18n();
+  const menuId = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const initialItem = useRef('first');
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const items = container.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+    items?.[initialItem.current === 'last' ? items.length - 1 : 0]?.focus();
+    const outside = (event: Event) => {
+      if (event.target instanceof Node && !container.current?.contains(event.target))
+        setOpen(false);
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('focusin', outside);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('focusin', outside);
+    };
+  }, [open]);
+  function close() {
+    setOpen(false);
+    trigger.current?.focus();
+  }
+  return (
+    <div ref={container} className="relative">
+      <button
+        ref={trigger}
+        type="button"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-surface-raised aria-expanded:bg-surface-raised"
+        aria-label={t('editor.pipelineActions')}
+        title={t('editor.pipelineActions')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onClick={() => {
+          initialItem.current = 'first';
+          setOpen(!open);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            initialItem.current = event.key === 'ArrowUp' ? 'last' : 'first';
+            if (open) {
+              const items =
+                container.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]');
+              items?.[initialItem.current === 'last' ? items.length - 1 : 0]?.focus();
+            } else setOpen(true);
+          } else if (open && event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+          }
+        }}
+      >
+        <MoreHorizontal size={19} />
+      </button>
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={t('editor.pipelineActions')}
+          className="absolute top-full right-0 z-10 mt-2 w-60 max-w-[calc(100vw-48px)] rounded-xl bg-surface-raised p-1.5 shadow-[0_8px_24px_rgb(0_0_0_/_0.25)]"
+          onKeyDown={(event) => {
+            if (event.key === 'Tab') {
+              close();
+              return;
+            }
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              event.stopPropagation();
+              close();
+              return;
+            }
+            const items = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('button')];
+            const index = items.indexOf(document.activeElement as HTMLButtonElement);
+            const next =
+              event.key === 'ArrowDown'
+                ? (index + 1) % items.length
+                : event.key === 'ArrowUp'
+                  ? (index - 1 + items.length) % items.length
+                  : event.key === 'Home'
+                    ? 0
+                    : event.key === 'End'
+                      ? items.length - 1
+                      : undefined;
+            if (next !== undefined) {
+              event.preventDefault();
+              items[next].focus();
+            }
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[12px] text-foreground hover:bg-surface-active focus-visible:bg-surface-active"
+            onClick={() => {
+              close();
+              onExport();
+            }}
+          >
+            <Download size={15} />
+            {t('common.export')}
+          </button>
+          <div className="mx-2 my-1 border-t border-solid border-line" />
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            className="flex min-h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[12px] text-danger hover:bg-surface-active focus-visible:bg-surface-active"
+            onClick={() => {
+              close();
+              onDelete();
+            }}
+          >
+            <Trash2 size={15} />
+            {t('editor.deletePipeline')}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

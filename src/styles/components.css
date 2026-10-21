@@ -130,29 +130,6 @@
 .node-palette > button > svg {
   color: var(--text-muted);
 }
-.run-steps > span {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 10px;
-  color: var(--text-muted);
-}
-.run-steps em {
-  display: grid;
-  place-items: center;
-  font-style: normal;
-  font-size: 9px;
-  background: rgb(var(--accent-rgb) / 0.102);
-  color: var(--text-secondary);
-  border: 1px solid rgb(var(--accent-rgb) / 0.278);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-}
-.run-steps svg {
-  margin-left: 5px;
-  color: var(--text-subtle);
-}
 .command-search input {
   flex: 1;
   border: 0;

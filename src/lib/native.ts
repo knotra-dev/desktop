@@ -70,8 +70,11 @@ export async function browserPackage(files: File[], entrypoint: string): Promise
   };
 }
 
-export async function openProjectDocs(): Promise<void> {
-  const url = 'https://github.com/knotra-dev/desktop';
+export async function openProjectDocs(page: 'project' | 'models' = 'project'): Promise<void> {
+  const url =
+    page === 'models'
+      ? 'https://knotra-dev.github.io/docs/en/docs/guides/connect-models/'
+      : 'https://github.com/knotra-dev/desktop';
   if (desktop) {
     const { openUrl } = await import('@tauri-apps/plugin-opener');
     await openUrl(url);

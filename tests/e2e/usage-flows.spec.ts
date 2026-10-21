@@ -4,7 +4,7 @@ import { expect, type Page, test } from '@playwright/test';
 import { unzipSync, zipSync } from 'fflate';
 import { parse } from 'yaml';
 import { type NodeDefinition, record } from '../../src/lib/types';
-import { addResearchDemo, openActiveEditor } from './authoring';
+import { addResearchPipeline, openActiveEditor, pipelineAction } from './authoring';
 
 const runtimeErrors = new WeakMap<Page, string[]>();
 
@@ -14,7 +14,7 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1456, height: 767 });
   await page.goto('/');
-  await addResearchDemo(page);
+  await addResearchPipeline(page);
   await expect.poll(() => state(page)).not.toBeNull();
 });
 
@@ -46,13 +46,19 @@ async function nav(page: Page, name: string) {
     .click();
 }
 
+async function advancedResources(page: Page) {
+  const details = page.locator('.workflow-resources > details');
+  if ((await details.getAttribute('open')) === null)
+    await details.locator(':scope > summary').click();
+}
+
 async function template(page: Page, title: string) {
   const previous = (await state(page)).activeId;
   await page.getByRole('button', { name: 'New pipeline', exact: true }).click();
   await page
     .getByRole('dialog')
     .getByRole('button', {
-      name: title === 'Research brief' ? 'Guided demo' : 'Building blocks',
+      name: 'Building blocks',
       exact: true,
     })
     .click();
@@ -85,7 +91,13 @@ async function fits(page: Page) {
 
 async function configure(page: Page, id: string, node: NodeDefinition) {
   if (node.type === 'llm') {
-    await page.getByRole('combobox', { name: 'Prompt source', exact: true }).selectOption('text');
+    const promptSource = page.getByRole('combobox', { name: 'Prompt source', exact: true });
+    if (await promptSource.isHidden())
+      await page
+        .locator('summary')
+        .filter({ hasText: /^Prompt source$/ })
+        .click();
+    await promptSource.selectOption('text');
     await page
       .getByRole('textbox', { name: 'Instructions', exact: true })
       .fill('Return a verified response.');
@@ -265,7 +277,7 @@ for (const title of templates)
       ).toBeVisible();
     }
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Export', exact: true }).click();
+    await pipelineAction(page, 'Export');
     const bytes = unzipSync(new Uint8Array(readFileSync((await (await download).path())!)));
     expect(parse(Buffer.from(bytes[workspace.entrypoint]).toString())).toEqual(
       await pipeline(page),
@@ -371,9 +383,9 @@ test('scratch workflow supports port values, expressions, schemas and block remo
   await page.getByRole('button', { name: 'Delete node', exact: true }).click();
   await page.getByRole('button', { name: 'Remove node', exact: true }).click();
   await expect.poll(async () => Object.keys((await pipeline(page)).spec.nodes)).toEqual(['ask']);
-  await page.getByRole('button', { name: 'Delete pipeline', exact: true }).click();
+  await pipelineAction(page, 'Delete pipeline');
   await page.getByRole('button', { name: 'Keep pipeline', exact: true }).click();
-  await page.getByRole('button', { name: 'Delete pipeline', exact: true }).click();
+  await pipelineAction(page, 'Delete pipeline');
   await page.getByRole('button', { name: 'Remove pipeline', exact: true }).click();
   await expect(page.locator('.pipelines-page')).toBeVisible();
   await page.getByRole('button', { name: 'Open Research brief', exact: true }).click();
@@ -416,10 +428,14 @@ test('files, prompt selection and malformed YAML recover through the editor', as
     page.getByText('4 B · Binary file preserved with the package', { exact: true }),
   ).toBeVisible();
   const exported = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await pipelineAction(page, 'Export');
   const binary = unzipSync(new Uint8Array(readFileSync((await (await exported).path())!)));
   expect(Buffer.from(binary['binary.bin'])).toEqual(Buffer.from([0, 255, 1, 128]));
   await page.getByRole('tab', { name: 'Canvas', exact: true }).click();
+  await page
+    .locator('summary')
+    .filter({ hasText: /^Prompt source$/ })
+    .click();
   await page.getByRole('combobox', { name: 'Prompt source', exact: true }).selectOption('file');
   await expect(page.getByRole('combobox', { name: 'Prompt file', exact: true })).toHaveValue(
     'instructions.txt',
@@ -434,7 +450,7 @@ test('files, prompt selection and malformed YAML recover through the editor', as
   await expect(
     page.getByRole('heading', { name: 'The YAML needs a little attention' }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await pipelineAction(page, 'Export');
   await expect(page.getByRole('status')).toContainText('validation errors');
   await page.locator('.validation-summary').click();
   await expect(page.getByRole('log')).toBeVisible();
@@ -447,14 +463,13 @@ test('files, prompt selection and malformed YAML recover through the editor', as
   await page.getByRole('button', { name: 'Fit graph', exact: true }).click();
 });
 
-test('resource tabs lead directly to their editors and persist alias edits', async ({ page }) => {
+test('advanced resource bindings keep legacy edits available and persisted', async ({ page }) => {
   for (const title of ['Models', 'MCP tools', 'Sandboxes', 'Secret references']) {
     await nav(page, 'Resources');
-    await page
-      .locator('.resource-tabs')
-      .getByRole('button', { name: new RegExp(`^${title} `) })
-      .click();
-    await page.getByRole('button', { name: 'Edit pipeline resources', exact: true }).click();
+    await page.locator('.resource-tabs').getByRole('button', { name: title, exact: true }).click();
+    const bindings = page.locator('.resource-bindings');
+    await bindings.locator('summary').click();
+    await bindings.getByRole('button', { name: 'Edit pipeline resources', exact: true }).click();
     if (title === 'Secret references')
       await expect(page.getByRole('tab', { name: 'Code', exact: true })).toHaveAttribute(
         'aria-selected',
@@ -463,17 +478,17 @@ test('resource tabs lead directly to their editors and persist alias edits', asy
     else await expect(page.locator('.workflow-resources')).toBeVisible();
   }
   await nav(page, 'Resources');
+  await page.locator('.resource-tabs').getByRole('button', { name: 'Models', exact: true }).click();
+  await page.locator('.resource-bindings summary').click();
   await page.getByRole('button', { name: 'Edit pipeline resources', exact: true }).click();
   await page
     .getByRole('textbox', { name: 'researcher · connection ID', exact: true })
     .fill('model_verified');
   await save(page);
   await nav(page, 'Resources');
-  await expect(
-    page
-      .locator('.resource-card')
-      .filter({ has: page.getByRole('heading', { name: 'researcher', exact: true }) }),
-  ).toContainText('model_verified');
+  await expect(page.locator('.resource-usage')).not.toContainText('model_verified');
+  await page.locator('.resource-bindings summary').click();
+  await expect(page.locator('.resource-bindings pre')).toContainText('model_verified');
   await page.screenshot({ path: test.info().outputPath('knotra-audit-resources-edited.png') });
 });
 
@@ -487,22 +502,34 @@ test('settings, search, shortcuts and modal dismissal work with persisted prefer
     .getByRole('dialog')
     .getByRole('button', { name: 'Settings View', exact: true })
     .click();
-  await expect(page.getByText('Disconnected', { exact: true })).toBeVisible();
-  await expect(page.locator('.notice.small')).toContainText(
-    'Start your local Knotra engine and connect using its address.',
-  );
-  await expect(page.locator('.notice.small')).toContainText(
-    'Running workflows continue on the engine when you close the app.',
-  );
+  await expect(page.getByRole('textbox', { name: 'Engine base URL', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save address', exact: true })).toHaveCount(0);
   await page
     .getByRole('textbox', { name: 'Engine base URL', exact: true })
     .fill('file:///tmp/engine');
-  await page.getByRole('button', { name: 'Save address', exact: true }).click();
+  await page.getByRole('button', { name: 'Connect engine', exact: true }).click();
   await expect(page.getByRole('alert')).toBeVisible();
+  await page.route('http://127.0.0.1:9000/v1/**', (route) =>
+    route.fulfill({
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      json:
+        new URL(route.request().url()).pathname === '/v1/info'
+          ? {
+              protocol: 'knotra.desktop/1',
+              engineId: 'settings-fixture',
+              principalId: 'user',
+              version: 'test',
+              capabilities: [],
+            }
+          : { items: [], nextCursor: null },
+    }),
+  );
+  const savedAddress = (await state(page)).engineUrl;
   await page
     .getByRole('textbox', { name: 'Engine base URL', exact: true })
     .fill('http://127.0.0.1:9000/');
-  await page.getByRole('button', { name: 'Save address', exact: true }).click();
+  expect((await state(page)).engineUrl).toBe(savedAddress);
+  await page.getByRole('button', { name: 'Connect engine', exact: true }).click();
   await expect.poll(async () => (await state(page)).engineUrl).toBe('http://127.0.0.1:9000');
   await page.getByRole('radio', { name: 'Light', exact: true }).click();
   await page.getByRole('button', { name: 'Collapse navigation', exact: true }).click();
@@ -518,7 +545,7 @@ test('settings, search, shortcuts and modal dismissal work with persisted prefer
   await page.getByRole('button', { name: 'Export backup', exact: true }).click();
   const backup = JSON.parse(readFileSync((await (await download).path())!, 'utf8'));
   expect(backup.theme).toBe('light');
-  expect(backup.workspaces).toHaveLength(6);
+  expect(backup.workspaces).toHaveLength(1);
   await page.keyboard.press('Control+n');
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -584,7 +611,7 @@ test('ZIP import selects the only Pipeline after profile and schema YAML files',
     .poll(async () => (await current(page)).files.map((file: { path: string }) => file.path).sort())
     .toEqual(['prompt.txt', 'reply.schema.yaml']);
   const downloaded = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await downloaded).path())!)));
   expect(Object.keys(exported).sort()).toEqual([
     'pipeline.yaml',
@@ -620,7 +647,7 @@ test('ZIP import preserves an entrypoint BOM and rejects duplicate paths before 
   });
   await expect(page.getByRole('heading', { name: 'basic-human', exact: true })).toBeVisible();
   const downloaded = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await downloaded).path())!)));
   expect(Buffer.from(exported['PIPELINE.YAML'])).toEqual(pipeline);
 
@@ -647,123 +674,6 @@ test('ZIP import preserves an entrypoint BOM and rejects duplicate paths before 
   }
 });
 
-test('demo tabs, cancellation, review links and artifact search complete the run journey', async ({
-  page,
-}) => {
-  test.setTimeout(60_000);
-  await nav(page, 'Inbox');
-  await expect(
-    page.getByRole('heading', { name: "You're all caught up.", exact: true }),
-  ).toBeVisible();
-  await nav(page, 'Artifacts');
-  await expect(
-    page.getByRole('heading', { name: 'Your outputs live here', exact: true }),
-  ).toBeVisible();
-  await nav(page, 'Runs');
-  await page.getByRole('button', { name: 'Explore the demo', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Research topic', exact: true }).fill('');
-  await expect(page.getByRole('button', { name: 'Start demo', exact: true })).toBeDisabled();
-  await page
-    .getByRole('textbox', { name: 'Research topic', exact: true })
-    .fill('Cancelled UI check');
-  await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(page.locator('.page-heading .status')).toHaveText('Cancelled');
-  await page.getByRole('button', { name: 'All runs', exact: true }).click();
-  await page
-    .getByRole('combobox', { name: 'Filter runs by status', exact: true })
-    .selectOption('cancelled');
-  await expect(page.locator('.run-table-row')).toHaveCount(1);
-  await page.getByRole('textbox', { name: 'Search runs', exact: true }).fill('missing');
-  await expect(page.getByRole('heading', { name: 'No matching runs', exact: true })).toBeVisible();
-  await page.getByRole('textbox', { name: 'Search runs', exact: true }).fill('');
-  await page.getByRole('button', { name: 'Try the guided demo', exact: true }).click();
-  await page
-    .getByRole('textbox', { name: 'Research topic', exact: true })
-    .fill('Completed UI check');
-  await page.getByRole('button', { name: 'Start demo', exact: true }).click();
-  await page.getByRole('button', { name: 'Inputs', exact: true }).click();
-  await expect(page.locator('.json-view')).toContainText('Completed UI check');
-  await page.getByRole('button', { name: 'Snapshot', exact: true }).click();
-  await expect(
-    page.getByRole('textbox', { name: 'Immutable run snapshot', exact: true }),
-  ).toHaveAttribute('contenteditable', 'false');
-  await page.getByRole('button', { name: 'Timeline', exact: true }).click();
-  await expect(page.locator('.timeline-event').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Review request', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Review request', exact: true }).click();
-  await page.getByRole('button', { name: 'View run', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Completed UI check', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Review request', exact: true }).click();
-  await page.screenshot({ path: test.info().outputPath('knotra-audit-review-dark.png') });
-  await page.getByRole('button', { name: 'JSON response', exact: true }).click();
-  await page
-    .getByRole('textbox', { name: 'Review JSON response', exact: true })
-    .fill('invalid JSON');
-  await page.getByRole('button', { name: 'Submit response', exact: true }).click();
-  await expect(page.getByRole('alert')).toBeVisible();
-  await page
-    .getByRole('textbox', { name: 'Review JSON response', exact: true })
-    .fill('{"feedback":"UI verified"}');
-  await page.getByRole('button', { name: 'Submit response', exact: true }).click();
-  await expect.poll(async () => (await state(page)).runs[0]?.status).toBe('succeeded');
-  await nav(page, 'Runs');
-  await page
-    .getByRole('combobox', { name: 'Filter runs by status', exact: true })
-    .selectOption('all');
-  await page.locator('.run-table-row').filter({ hasText: 'Completed UI check' }).click();
-  await page.getByRole('button', { name: 'Outputs', exact: true }).click();
-  await expect(page.locator('.json-view')).toContainText('document');
-  await page.screenshot({ path: test.info().outputPath('knotra-audit-run-complete.png') });
-  await nav(page, 'Artifacts');
-  await page.locator('.artifact-card').click();
-  await expect(page.locator('.artifact-text')).toContainText('UI verified');
-  await page.getByRole('textbox', { name: 'Search artifacts', exact: true }).fill('missing');
-  await expect(
-    page.getByRole('heading', { name: 'No matching artifacts', exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole('textbox', { name: 'Search artifacts', exact: true })
-    .fill('Completed UI check');
-  await expect(page.locator('.artifact-card')).toHaveCount(1);
-  await page.screenshot({ path: test.info().outputPath('knotra-audit-artifact-dark.png') });
-  for (const theme of ['dark', 'light'] as const) {
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page
-      .getByRole('radio', { name: theme === 'dark' ? 'Dark' : 'Light', exact: true })
-      .click();
-    for (const [width, height] of [
-      [1456, 767],
-      [1000, 767],
-      [1000, 680],
-    ]) {
-      await page.setViewportSize({ width, height });
-      for (const view of ['Runs', 'Inbox', 'Artifacts', 'Resources']) {
-        await nav(page, view);
-        if (view === 'Runs') {
-          await page.locator('.run-table-row').filter({ hasText: 'Completed UI check' }).click();
-          const bottom = await page.locator('.run-bottom').boundingBox();
-          expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(height);
-          await page.getByRole('button', { name: 'All runs', exact: true }).click();
-        }
-        if (view === 'Artifacts') {
-          await page.locator('.artifact-card').first().click();
-          const inspector = await page.locator('.artifact-inspector').boundingBox();
-          expect(inspector!.x + inspector!.width).toBeLessThanOrEqual(width);
-        }
-        await fits(page);
-        await page.screenshot({
-          path: test
-            .info()
-            .outputPath(`knotra-audit-${view.toLowerCase()}-${theme}-${width}-${height}.png`),
-        });
-      }
-    }
-  }
-});
-
 test('keyboard save commits the currently focused setup field', async ({ page }) => {
   const description = page.getByRole('textbox', { name: 'Description', exact: true });
   await description.fill('Saved with keyboard while editing');
@@ -780,6 +690,7 @@ test('keyboard save commits the currently focused setup field', async ({ page })
     .poll(async () => (await current(page)).savedSource)
     .toContain('Saved workflow title');
   await expect(title).toBeFocused();
+  await advancedResources(page);
   await page.getByText('Models (2)', { exact: true }).click();
   const connection = page.getByRole('textbox', { name: 'researcher · connection ID', exact: true });
   await connection.fill('model_revision');
@@ -815,13 +726,14 @@ test('workflow inputs, exports and all editable resource aliases persist', async
   await expect
     .poll(async () => (await pipeline(page)).spec.outputs?.summary?.bind?.from)
     .toBe('inputs.context');
+  await advancedResources(page);
   for (const [kind, summary, aliasLabel, alias, idLabel, connection] of [
     ['models', 'Models', 'New model alias', 'assistant', 'Connection ID', 'model_verified'],
     ['mcp', 'MCP servers', 'New server alias', 'auxiliary', 'Connection ID', 'search_verified'],
     ['sandboxes', 'Sandboxes', 'New sandbox alias', 'isolated', 'Profile ID', 'sandbox_verified'],
   ]) {
     const panel = page
-      .locator('.workflow-resources details')
+      .locator('.workflow-resources > details > details')
       .filter({ has: page.locator('summary').filter({ hasText: new RegExp(`^${summary} `) }) });
     await panel.locator('summary').click();
     await panel.getByRole('textbox', { name: aliasLabel, exact: true }).fill(alias);
@@ -843,6 +755,7 @@ test('workflow inputs, exports and all editable resource aliases persist', async
   await page.reload();
   await openActiveEditor(page);
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  await advancedResources(page);
   await page.getByText('Models (3)', { exact: true }).click();
   await expect(
     page.getByRole('textbox', { name: 'assistant · connection ID', exact: true }),
@@ -853,7 +766,7 @@ test('empty workspace creation and modal keyboard navigation remain usable', asy
   const count = await page.locator('.sidebar-pipelines > button').count();
   for (let index = 0; index < count; index++) {
     if (index > 0) await page.locator('.sidebar-pipelines > button').first().click();
-    await page.getByRole('button', { name: 'Delete pipeline', exact: true }).click();
+    await pipelineAction(page, 'Delete pipeline');
     await page.getByRole('button', { name: 'Remove pipeline', exact: true }).click();
   }
   await expect(

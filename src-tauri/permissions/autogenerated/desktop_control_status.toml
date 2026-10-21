@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-control-status"
+description = "Enables the desktop_control_status command without any pre-configured scope."
+commands.allow = ["desktop_control_status"]
+
+[[permission]]
+identifier = "deny-desktop-control-status"
+description = "Denies the desktop_control_status command without any pre-configured scope."
+commands.deny = ["desktop_control_status"]

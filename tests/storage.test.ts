@@ -1,14 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { parseDocument } from 'yaml';
-import { createDemoRun } from '../src/lib/demo';
 import { examples, fromExample } from '../src/lib/examples';
-import { translate } from '../src/lib/i18n';
 import { freshState, loadState, migrateStarters, readBackup, type State } from '../src/lib/storage';
+import { legacyRun } from './fixtures/legacyRun';
 
 const key = 'knotra.workspace.v1';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('workspace loading and starter migration', () => {
+  it('keeps a legacy remote engine selection manual', () => {
+    const state = { ...freshState(), engineUrl: 'https://engine.example.com' };
+    delete state.engineMode;
+    expect(readBackup(JSON.stringify(state))).toEqual({ ...state, engineMode: 'manual' });
+  });
+
+  it.each(['local', 'manual'] as const)(
+    'preserves the %s engine choice in backups',
+    (engineMode) => {
+      const state = { ...freshState(), engineMode };
+      expect(readBackup(JSON.stringify(state))).toEqual(state);
+    },
+  );
+
   it.each(['{broken', '', JSON.stringify({ version: 1, workspaces: [{}], runs: [] })])(
     'rejects corrupt browser data without overwriting the original bytes: %s',
     (raw) => {
@@ -21,128 +33,76 @@ describe('workspace loading and starter migration', () => {
     },
   );
 
-  it('creates exactly five starters in the preferred locale and marks them installed', () => {
+  it('starts with an empty workspace in the preferred locale', () => {
     vi.stubGlobal('navigator', { language: 'ru-RU' });
     const state = freshState();
     expect(state.locale).toBe('ru');
-    expect(state.starterRevision).toBe(4);
-    const starters = examples.filter((example) => example.category === 'starter');
-    expect(state.workspaces).toHaveLength(5);
-    expect(
-      state.workspaces.map((workspace) =>
-        parseDocument(workspace.source).getIn(['metadata', 'title']),
-      ),
-    ).toEqual(starters.map((example) => translate(example.titleKey, 'ru')));
+    expect(state.starterRevision).toBe(5);
+    expect(state.workspaces).toEqual([]);
+    expect(state.runs).toEqual([]);
+    expect(state.activeId).toBe('');
     expect(readBackup(JSON.stringify(state))).toEqual(state);
-  });
-
-  it('adds missing starters once without overwriting modified drafts or demo histories', async () => {
-    const state = freshState();
-    delete state.starterRevision;
-    const edited = state.workspaces[0];
-    edited.source =
-      edited.source.replace('kind: Pipeline', 'kind: WorkInProgress') +
-      '\n# unsaved user changes\n';
-    const demo = fromExample(examples.find((example) => example.id === 'research')!);
-    state.runs = [createDemoRun(demo, 'Keep this history')];
-    demo.source += '\n# Custom saved research instructions\n';
-    demo.savedSource = demo.source;
-    state.workspaces = [edited, demo];
-    const source = edited.source;
-    const migrated = await migrateStarters(state);
-    expect(migrated.starterRevision).toBe(4);
-    expect(migrated.workspaces).toHaveLength(6);
-    expect(migrated.workspaces.slice(0, 2)).toEqual([edited, demo]);
-    expect(migrated.workspaces[0]).toBe(edited);
-    expect(migrated.workspaces[0].source).toBe(source);
-    expect(migrated.runs).toBe(state.runs);
-    expect(migrated.activeId).toBe(state.activeId);
-    expect(await migrateStarters(migrated)).toBe(migrated);
-    expect(state.workspaces).toHaveLength(2);
-    const deleted: State = { ...migrated, workspaces: [] };
-    expect((await migrateStarters(deleted)).workspaces).toEqual([]);
-  });
-
-  it('imports a legacy backup exactly and defers migration until installation loading', async () => {
-    const state = freshState();
-    delete state.starterRevision;
-    state.workspaces = [];
-    state.activeId = '';
-    const raw = JSON.stringify(state);
-    const restored = readBackup(raw);
-    expect(restored).toEqual(state);
-    expect(restored.starterRevision).toBeUndefined();
-    vi.stubGlobal('localStorage', { getItem: () => raw });
+    vi.stubGlobal('localStorage', { getItem: () => null });
     expect(loadState()).toEqual(state);
-    expect((await migrateStarters(restored)).workspaces).toHaveLength(5);
   });
 
-  it.each([1, 2] as const)(
-    'cleans only pristine legacy templates when upgrading revision %s',
+  it.each([undefined, 1, 2, 3, 4] as const)(
+    'marks revision %s without changing pristine or customized drafts and histories',
     async (revision) => {
-      const state = freshState();
-      const existing = fromExample(examples.find((example) => example.id === 'research')!);
-      state.starterRevision = revision;
+      const pristine = fromExample(examples.find((example) => example.id === 'research')!);
+      const starter = fromExample(examples.find((example) => example.id === 'hello')!, 'ru');
       const edited = {
-        ...existing,
+        ...pristine,
         id: 'customized',
-        source: `${existing.source}\n# Personal changes\n`,
+        source: `${pristine.source}\n# Unsaved personal changes\n`,
+        entrypoint: 'custom.yaml',
+        positions: { research: { x: 120, y: 320 } },
+        files: [{ path: 'notes.txt', content: 'bm90ZXM=' }],
       };
-      edited.savedSource = edited.source;
-      const history = createDemoRun(existing, 'Historical execution must remain');
-      state.runs = [history];
-      state.workspaces = [existing, edited];
-      state.activeId = existing.id;
+      const state: State = {
+        ...freshState(),
+        starterRevision: revision,
+        workspaces: [pristine, starter, edited],
+        runs: [legacyRun(pristine, 'Keep this history')],
+        activeId: pristine.id,
+      };
+      if (revision === undefined) delete state.starterRevision;
+      const original = JSON.stringify(state);
       const migrated = await migrateStarters(state);
-      expect(migrated.starterRevision).toBe(4);
-      expect(migrated.workspaces).toHaveLength(6);
-      expect(migrated.workspaces[0]).toBe(edited);
-      expect(migrated.workspaces.some((workspace) => workspace.id === existing.id)).toBe(false);
-      expect(migrated.activeId).toBe(edited.id);
-      expect(migrated.runs).toEqual([history]);
-      expect(readBackup(JSON.stringify(state)).starterRevision).toBe(revision);
+      expect(migrated).toEqual({ ...state, starterRevision: 5 });
+      expect(migrated.workspaces).toBe(state.workspaces);
+      expect(migrated.runs).toBe(state.runs);
+      expect(migrated.activeId).toBe(state.activeId);
+      expect(JSON.stringify(state)).toBe(original);
       expect(await migrateStarters(migrated)).toBe(migrated);
+      expect(readBackup(original)).toEqual(state);
+      expect(readBackup(JSON.stringify(migrated))).toEqual(migrated);
     },
   );
-});
 
-it('keeps legacy drafts with a customized package name, layout, or supporting files', async () => {
-  const original = fromExample(examples.find((example) => example.id === 'research')!);
-  const customized = [
-    { ...original, id: 'entrypoint', entrypoint: 'custom.yaml' },
-    { ...original, id: 'layout', positions: { research: { x: 120, y: 320 } } },
-    { ...original, id: 'files', files: [{ path: 'notes.txt', content: 'bm90ZXM=' }] },
-  ];
-  const state = { ...freshState(), starterRevision: 2 as const, workspaces: customized };
-  const migrated = await migrateStarters(state);
-  expect(migrated.workspaces.slice(0, 3)).toEqual(customized);
-  expect(migrated.workspaces).toHaveLength(8);
-});
-
-it('adds only the new review workflow when upgrading revision 3', async () => {
-  const state = { ...freshState(), starterRevision: 3 as const };
-  state.workspaces = [state.workspaces[0]];
-  state.workspaces[0].source += '\n# My edits\n';
-  const migrated = await migrateStarters(state);
-  expect(migrated.workspaces).toHaveLength(2);
-  expect(migrated.workspaces[0]).toBe(state.workspaces[0]);
-  expect(migrated.workspaces[1].entrypoint).toBe('review.yaml');
-  expect(await migrateStarters(migrated)).toBe(migrated);
-});
-
-it('does not confuse a custom review.yaml package with the new starter', async () => {
-  const state = { ...freshState(), starterRevision: 3 as const };
-  const custom = { ...state.workspaces[0], entrypoint: 'review.yaml' };
-  state.workspaces = [custom];
-  const migrated = await migrateStarters(state);
-  expect(migrated.workspaces).toHaveLength(2);
-  expect(migrated.workspaces[0]).toBe(custom);
+  it.each([undefined, 1, 2, 3, 4, 5] as const)(
+    'does not install templates in an empty revision %s workspace',
+    async (revision) => {
+      const state: State = { ...freshState(), starterRevision: revision };
+      if (revision === undefined) delete state.starterRevision;
+      const raw = JSON.stringify(state);
+      expect(readBackup(raw)).toEqual(state);
+      vi.stubGlobal('localStorage', { getItem: () => raw });
+      expect(loadState()).toEqual(state);
+      const migrated = await migrateStarters(state);
+      expect(migrated).toEqual({ ...state, starterRevision: 5 });
+      expect(migrated.workspaces).toBe(state.workspaces);
+      expect(migrated.runs).toBe(state.runs);
+      expect(migrated.activeId).toBe('');
+      if (revision === 5) expect(migrated).toBe(state);
+    },
+  );
 });
 
 it.each([{}, [], null, 12])('rejects malformed optional demo IDs and event nodes: %j', (value) => {
   const state = freshState();
   const workspace = fromExample(examples.find((example) => example.id === 'research')!);
-  state.runs = [createDemoRun(workspace, 'Backup validation')];
+  state.runs = [legacyRun(workspace, 'Backup validation')];
   state.runs[0].status = 'waiting_human';
   const backup = JSON.parse(JSON.stringify(state));
   backup.runs[0].requestId = value;

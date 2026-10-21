@@ -1,19 +1,23 @@
 import { Validator } from '@cfworker/json-schema';
 import { Inbox } from 'lucide-react';
-import { type Dispatch, type SetStateAction, useState } from 'react';
+import { type Dispatch, type ReactNode, type SetStateAction, useState } from 'react';
 import { Empty, time } from '../../components/ui';
 import { engineError } from '../../lib/engine/client';
 import type { EngineRequest } from '../../lib/engine/types';
 import type { EngineController } from '../../lib/engine/useEngine';
 import { useI18n } from '../../lib/i18n';
+import type { Json } from '../../lib/types';
+import { HumanResponseForm } from './HumanResponseForm';
 import { ReviewArtifact } from './ReviewArtifact';
 
 export function EngineInboxView({
+  tour,
   engine,
   onRun,
   responseDrafts,
   onResponseDraftsChange,
 }: {
+  tour?: ReactNode;
   engine: EngineController;
   onRun: (id: string) => void;
   responseDrafts?: Record<string, string>;
@@ -26,11 +30,14 @@ export function EngineInboxView({
   const setDrafts = onResponseDraftsChange ?? setLocalDrafts;
   const requests = engine.requests.filter((request) => request.status === 'open');
   const request = requests.find((request) => request.id === selected) ?? requests[0];
-  const requestName = (item: EngineRequest) =>
-    engine.runs
+  const requestName = (item: EngineRequest) => {
+    const nodeId = engine.runs
       .find((run) => run.id === item.runId)
-      ?.instances.find((instance) => instance.id === item.instanceId)?.nodeId ??
-    t('execution.humanRequest');
+      ?.instances.find((instance) => instance.id === item.instanceId)?.nodeId;
+    return nodeId === 'human'
+      ? t('execution.humanReview')
+      : (nodeId ?? t('execution.humanRequest'));
+  };
   const runTitle = (item: EngineRequest) =>
     engine.runs.find((run) => run.id === item.runId)?.title ?? item.runId;
   return (
@@ -44,6 +51,7 @@ export function EngineInboxView({
           {t('execution.countOpenRequests', { count: requests.length })}
         </span>
       </header>
+      {tour}
       {request ? (
         <div className="inbox-layout flex gap-6.25 mx-7.5 my-0">
           <div className="request-list w-58.75 shrink-0">
@@ -90,6 +98,37 @@ export function EngineInboxView({
   );
 }
 
+function ReviewValue({ value }: { value: Json }) {
+  const { t } = useI18n();
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value);
+    if (!entries.length) return <p>{t('execution.reviewNoValue')}</p>;
+    return (
+      <dl className="grid gap-3 min-w-0">
+        {entries.map(([name, entry]) => (
+          <div key={name} className="min-w-0">
+            <dt className="text-[11px] font-medium text-secondary">
+              {Array.isArray(value) ? `${Number(name) + 1}.` : name.replace(/[_-]+/g, ' ')}
+            </dt>
+            <dd className="mt-1 ml-0">
+              <ReviewValue value={entry} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+  return (
+    <p className="whitespace-pre-wrap wrap-anywhere text-[13px] leading-relaxed text-secondary">
+      {value === null
+        ? t('execution.reviewNoValue')
+        : typeof value === 'boolean'
+          ? t(value ? 'execution.responseYes' : 'execution.responseNo')
+          : String(value)}
+    </p>
+  );
+}
+
 function EngineResponse({
   request,
   title,
@@ -128,7 +167,7 @@ function EngineResponse({
         throw new Error('Response must be an object of output ports.');
       }
       if (!new Validator(request.responseSchema, '2020-12', false).validate(outputs).valid) {
-        localFailure = 'Response does not match the requested JSON schema.';
+        localFailure = 'execution.reviewRequiredFieldsError';
         throw new Error('Response does not match the requested JSON schema.');
       }
       await engine.command({
@@ -150,9 +189,7 @@ function EngineResponse({
     <div className="review-card flex-1 min-w-0 bg-surface border border-solid border-line rounded-[20px] overflow-hidden">
       <header>
         <div>
-          <span className="eyebrow text-[9px] tracking-[1.3px] text-muted font-medium">
-            {t('execution.humanRequest')}
-          </span>
+          <span className="text-[11px] text-muted">{t('execution.needsReview')}</span>
           <h2>{title}</h2>
           <p className="small muted text-[11px] text-muted">{runTitle}</p>
         </div>
@@ -161,9 +198,12 @@ function EngineResponse({
         </button>
       </header>
       <div className="review-content flex flex-col gap-4.5 min-w-0 px-6.75 py-6">
-        <p className="review-prompt text-[11px] text-muted whitespace-pre-wrap wrap-anywhere mx-6.75 my-5.25">
-          {request.prompt}
-        </p>
+        <section className="flex flex-col gap-2">
+          <h3 className="text-[13px] font-medium">{t('execution.reviewTask')}</h3>
+          <p className="review-prompt text-[13px] text-secondary whitespace-pre-wrap wrap-anywhere">
+            {request.prompt || t('execution.reviewSubmitHint')}
+          </p>
+        </section>
         {request.dataTruncated && <p role="status">{t('observe.dataTruncated')}</p>}
         {request.responseSchema === null && (
           <p role="status">{t('execution.schemaPreviewUnavailable')}</p>
@@ -171,6 +211,19 @@ function EngineResponse({
         <p className="small muted text-[11px] text-muted">
           {t('execution.deadlineTime', { time: time(request.deadline, locale) })}
         </p>
+        {Object.keys(request.inputs.values).length ? (
+          <section className="flex flex-col gap-4" aria-label={t('execution.reviewMaterials')}>
+            <h3 className="text-[13px] font-medium">{t('execution.reviewMaterials')}</h3>
+            {Object.entries(request.inputs.values).map(([name, value]) => (
+              <div key={name} className="min-w-0 border-t border-solid border-line pt-3">
+                <h4 className="text-[12px] font-medium text-secondary mb-2">
+                  {name === 'draft' ? t('execution.reviewDraft') : name.replace(/[_-]+/g, ' ')}
+                </h4>
+                <ReviewValue value={value} />
+              </div>
+            ))}
+          </section>
+        ) : null}
         {Object.entries(request.inputs.artifacts ?? {}).flatMap(([name, value]) =>
           (Array.isArray(value) ? value : [value]).map((artifact, index) => (
             <ReviewArtifact
@@ -182,30 +235,34 @@ function EngineResponse({
           )),
         )}
         <details>
-          <summary>{t('execution.inputs')}</summary>
+          <summary>{t('execution.technicalDetails')}</summary>
+          <p className="mt-3 text-[11px] wrap-anywhere">
+            {t('execution.requestId', { id: request.id })}
+          </p>
+          <h4 className="mt-3 text-[11px] font-medium">{t('execution.inputs')}</h4>
           <pre className="json-view text-muted overflow-auto min-h-0 text-[11px] p-5.5 m-0">
             {JSON.stringify(request.inputs, null, 2)}
           </pre>
-        </details>
-        <details>
-          <summary>{t('execution.responseSchema')}</summary>
+          <h4 className="mt-3 text-[11px] font-medium">{t('execution.responseSchema')}</h4>
           <pre className="json-view text-muted overflow-auto min-h-0 text-[11px] p-5.5 m-0">
             {request.responseSchemaJSON ?? JSON.stringify(request.responseSchema, null, 2)}
           </pre>
         </details>
       </div>
-      <div className="response-form bg-surface border-t border-solid border-t-line px-6.75 py-5.75">
-        <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-          {t('execution.responseOutputPorts')}
-          <textarea
-            aria-label={t('execution.engineReviewResponse')}
-            className="code-input [font-family:ui-monospace,_monospace]"
-            rows={7}
-            value={value}
-            disabled={busy}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        </label>
+      <form
+        className="response-form bg-surface border-t border-solid border-t-line px-6.75 py-5.75"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <h3 className="text-[13px] font-medium mb-3">{t('execution.yourResponse')}</h3>
+        <HumanResponseForm
+          schema={request.responseSchema}
+          value={value}
+          onChange={onChange}
+          disabled={busy}
+        />
         {error ? (
           <p
             className="form-error text-secondary text-[11px] leading-[1.8] mt-2.5 whitespace-pre-wrap"
@@ -219,9 +276,9 @@ function EngineResponse({
           </p>
         ) : null}
         <div className="response-footer flex items-center justify-between gap-3.75 mt-4.25">
-          <small>{t('execution.requestId', { id: request.id })}</small>
+          <small>{t('execution.reviewSubmitHint')}</small>
           <button
-            type="button"
+            type="submit"
             className="button primary"
             disabled={
               !engine.info ||
@@ -231,12 +288,11 @@ function EngineResponse({
                 (item) => item.request.op === 'respond' && item.request.requestId === request.id,
               )
             }
-            onClick={() => void submit()}
           >
             {t('execution.submitResponse')}
           </button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

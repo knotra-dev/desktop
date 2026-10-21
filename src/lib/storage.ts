@@ -1,14 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
-import { parseDocument } from 'yaml';
-import { sha256, textBytes, unbase64 } from './bytes';
-import { examples, initialWorkspaces } from './examples';
+import { unbase64 } from './bytes';
 import { type Locale, normalizeLocale, preferredLocale } from './i18n';
 import { desktop } from './native';
 import type { Theme } from './theme';
 import { type DemoRun, record, type Workspace } from './types';
 import { validPath } from './validation';
 
-export const STARTER_REVISION = 4;
+export const STARTER_REVISION = 5;
 
 const KEY = 'knotra.workspace.v1';
 const WORKSPACE_BUSY =
@@ -21,11 +19,12 @@ const foldPath = (path: string) => path.replace(/[A-Z]/g, (letter) => letter.toL
 
 export interface State {
   version: 1;
-  starterRevision?: 1 | 2 | 3 | 4;
+  starterRevision?: 1 | 2 | 3 | 4 | 5;
   workspaces: Workspace[];
   runs: DemoRun[];
   activeId: string;
   engineUrl: string;
+  engineMode?: 'local' | 'manual';
   compact: boolean;
   theme: Theme;
   locale: Locale;
@@ -33,14 +32,14 @@ export interface State {
 
 export function freshState(): State {
   const locale = preferredLocale();
-  const workspaces = initialWorkspaces(locale);
   return {
     version: 1,
     starterRevision: STARTER_REVISION,
-    workspaces,
+    workspaces: [],
     runs: [],
-    activeId: workspaces[0].id,
+    activeId: '',
     engineUrl: 'http://127.0.0.1:8787',
+    engineMode: 'local',
     compact: false,
     theme: 'dark',
     locale,
@@ -52,88 +51,10 @@ export function loadState(): State {
   return raw === null ? freshState() : readBackup(raw);
 }
 
-// Importing a backup is exact; only opening an older installation adds new starters.
-// Once marked, deliberately deleted starters stay deleted on subsequent launches.
+// Existing templates may be user-created, so upgrades preserve every draft and history.
 export async function migrateStarters(state: State): Promise<State> {
   if (state.starterRevision === STARTER_REVISION) return state;
-  const nameOf = (workspace: Workspace): string | undefined => {
-    // A draft may temporarily fail contract validation while retaining its identity.
-    if (workspace.source.length > 8 * 1024 * 1024) return;
-    try {
-      const name = parseDocument(workspace.source).getIn(['metadata', 'name']);
-      return typeof name === 'string' ? name : undefined;
-    } catch {
-      return;
-    }
-  };
-  // Revision 3 already installed the original starters. Add only the new one,
-  // so upgrading does not restore examples deliberately deleted by the user.
-  if (state.starterRevision === 3) {
-    const additions = initialWorkspaces(state.locale).filter(
-      (workspace) =>
-        nameOf(workspace) === 'reviewed-research' &&
-        !state.workspaces.some((existing) => nameOf(existing) === 'reviewed-research'),
-    );
-    return {
-      ...state,
-      starterRevision: STARTER_REVISION,
-      workspaces: [...state.workspaces, ...additions],
-    };
-  }
-  const fingerprint = (source: string, files: Workspace['files']) =>
-    sha256(
-      textBytes(
-        JSON.stringify([
-          source,
-          files
-            .map((file) => [file.path, file.content])
-            .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)),
-        ]),
-      ),
-    );
-  // Exact fingerprints of the three retired starter packages, including their
-  // original EN/RU titles. Any source or supporting-file edit keeps the draft.
-  const retired = new Set([
-    '133fef130fb7f4032e6f4b41a308ff96041bca25cc2079adb1252e668ac4fbce',
-    'f574889495ef6991b14627f4c181f191283bcda38304d59b02ed22be52f35800',
-    '74a83e8f78aaf9c1a99b5c6e868c56866fe46b7295677775fc7c8a6ca9a396e9',
-    'a7dd3e91dbd963ea16eaf74760e0f0ed31623d5b600b510a6d949cb01a18429e',
-    '2104f88e6e59070380da9b7d29db3e0b20ecc8d1f41b0ea7371c89e1d4f7fe6a',
-    'bee24c70d7afa6a95761dbe35a10d685d914da9b23a08d11c37622330a44e5de',
-    'eba32eb49ed19e6f304f291567146d90edf8c5711cd46cae9af743cad17b5e94',
-    '828d6f91f4961b7c8e154ac1f0918d1cd1d8ace9c187f816fc0dd77e457eced4',
-    '1584077623c086da6b8c8bd0abda73b07841c5411681fa7a36000febae0427fd',
-  ]);
-  for (const example of examples.filter((example) =>
-    ['research', 'agent', 'foreach', 'local'].includes(example.id),
-  )) {
-    retired.add(await fingerprint(example.source, example.files));
-  }
-  const retained: Workspace[] = [];
-  for (const workspace of state.workspaces) {
-    if (
-      workspace.entrypoint !== 'pipeline.yaml' ||
-      Object.keys(workspace.positions ?? {}).length > 0 ||
-      workspace.source !== workspace.savedSource ||
-      !retired.has(await fingerprint(workspace.source, workspace.files))
-    ) {
-      retained.push(workspace);
-    }
-  }
-  const names = new Set(retained.map(nameOf));
-  const additions = initialWorkspaces(state.locale).filter((workspace) => {
-    const name = nameOf(workspace);
-    return name && !names.has(name);
-  });
-  const workspaces = [...retained, ...additions];
-  return {
-    ...state,
-    starterRevision: STARTER_REVISION,
-    workspaces,
-    activeId: workspaces.some((w) => w.id === state.activeId)
-      ? state.activeId
-      : (workspaces[0]?.id ?? ''),
-  };
+  return { ...state, starterRevision: STARTER_REVISION };
 }
 
 let writes: Promise<void> = Promise.resolve();
@@ -312,13 +233,19 @@ export function readBackup(text: string): State {
     throw new Error('Invalid engine address in backup.');
   return {
     version: 1,
-    ...([1, 2, 3, 4].includes(value.starterRevision)
-      ? { starterRevision: value.starterRevision as 1 | 2 | 3 | 4 }
+    ...([1, 2, 3, 4, 5].includes(value.starterRevision)
+      ? { starterRevision: value.starterRevision as 1 | 2 | 3 | 4 | 5 }
       : {}),
     workspaces: value.workspaces,
     runs: value.runs,
     activeId: ids.has(value.activeId) ? value.activeId : (value.workspaces[0]?.id ?? ''),
     engineUrl,
+    ...(value.engineMode === 'local' || value.engineMode === 'manual'
+      ? { engineMode: value.engineMode }
+      : !['localhost', '[::1]'].includes(address.hostname) &&
+          !/^127(?:\.\d{1,3}){3}$/.test(address.hostname)
+        ? { engineMode: 'manual' as const }
+        : {}),
     compact: value.compact === true,
     theme: value.theme === 'light' ? 'light' : 'dark',
     locale: normalizeLocale(value.locale),

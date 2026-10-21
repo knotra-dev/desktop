@@ -1,0 +1,84 @@
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index 422889fc98ea26cf4c4b45d6d7b84479550f4728..ef087637411458ca1e538658e84f1f518fec177f 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -2146,26 +2146,34 @@ function useVisibleNodeIds(onlyRenderVisible) {
+ const selector$b = (s) => s.updateNodeInternals;
+ function useResizeObserver() {
+     const updateNodeInternals = useStore(selector$b);
++    const frame = useRef(0);
++    const pending = useRef(new Map());
+     const [resizeObserver] = useState(() => {
+         if (typeof ResizeObserver === 'undefined') {
+             return null;
+         }
+         return new ResizeObserver((entries) => {
+-            const updates = new Map();
+             entries.forEach((entry) => {
+                 const id = entry.target.getAttribute('data-id');
+-                updates.set(id, {
++                pending.current.set(id, {
+                     id,
+                     nodeElement: entry.target,
+                     force: true,
+                 });
+             });
+-            updateNodeInternals(updates);
++            // Defer DOM-changing measurements past ResizeObserver delivery to avoid WebKit loops.
++            cancelAnimationFrame(frame.current);
++            frame.current = requestAnimationFrame(() => {
++                updateNodeInternals(pending.current);
++                pending.current.clear();
++            });
+         });
+     });
+     useEffect(() => {
+         return () => {
+             resizeObserver?.disconnect();
++            cancelAnimationFrame(frame.current);
++            pending.current.clear();
+         };
+     }, [resizeObserver]);
+     return resizeObserver;
+diff --git a/dist/esm/index.mjs b/dist/esm/index.mjs
+index 422889fc98ea26cf4c4b45d6d7b84479550f4728..ef087637411458ca1e538658e84f1f518fec177f 100644
+--- a/dist/esm/index.mjs
++++ b/dist/esm/index.mjs
+@@ -2146,26 +2146,34 @@ function useVisibleNodeIds(onlyRenderVisible) {
+ const selector$b = (s) => s.updateNodeInternals;
+ function useResizeObserver() {
+     const updateNodeInternals = useStore(selector$b);
++    const frame = useRef(0);
++    const pending = useRef(new Map());
+     const [resizeObserver] = useState(() => {
+         if (typeof ResizeObserver === 'undefined') {
+             return null;
+         }
+         return new ResizeObserver((entries) => {
+-            const updates = new Map();
+             entries.forEach((entry) => {
+                 const id = entry.target.getAttribute('data-id');
+-                updates.set(id, {
++                pending.current.set(id, {
+                     id,
+                     nodeElement: entry.target,
+                     force: true,
+                 });
+             });
+-            updateNodeInternals(updates);
++            // Defer DOM-changing measurements past ResizeObserver delivery to avoid WebKit loops.
++            cancelAnimationFrame(frame.current);
++            frame.current = requestAnimationFrame(() => {
++                updateNodeInternals(pending.current);
++                pending.current.clear();
++            });
+         });
+     });
+     useEffect(() => {
+         return () => {
+             resizeObserver?.disconnect();
++            cancelAnimationFrame(frame.current);
++            pending.current.clear();
+         };
+     }, [resizeObserver]);
+     return resizeObserver;

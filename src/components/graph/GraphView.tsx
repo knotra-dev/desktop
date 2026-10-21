@@ -39,6 +39,7 @@ interface LayoutData extends Record<string, unknown> {
   outputs: Record<string, Port>;
   editable: boolean;
   compact: boolean;
+  resourceLabel?: string;
 }
 
 interface CardData extends LayoutData {
@@ -48,14 +49,27 @@ interface CardData extends LayoutData {
 type CardNode = Node<CardData, 'pipelineNode'>;
 type LayoutNode = Node<LayoutData, 'pipelineNode'>;
 
-function nodeDetail(node: NodeDefinition, t: ReturnType<typeof useI18n>['t']): string {
+function nodeDetail(
+  node: NodeDefinition,
+  t: ReturnType<typeof useI18n>['t'],
+  resourceLabel?: string,
+): string {
   const config = record(node[node.type]);
   if (config.model)
-    return `${config.model} · ${config.maxSteps ? t('editor.countSteps', { count: String(config.maxSteps) }) : t('editor.structuredOutput')}`;
-  if (node.type === 'tool') return `${config.server}.${config.name}`;
+    return [
+      resourceLabel,
+      config.maxSteps
+        ? t('editor.countSteps', { count: String(config.maxSteps) })
+        : t('editor.structuredOutput'),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  if (node.type === 'tool') return String(config.name ?? '').replace(/[_-]+/g, ' ');
   if (node.type === 'human') return t('editor.waitsForAPerson');
   if (node.type === 'code')
-    return `${Array.isArray(config.command) ? config.command[0] : t('editor.command')} · ${node.sandbox ?? t('editor.sandbox2')}`;
+    return [Array.isArray(config.command) ? config.command[0] : t('editor.command'), resourceLabel]
+      .filter(Boolean)
+      .join(' · ');
   if (node.type === 'foreach')
     return t('editor.countConcurrentIterations', { count: String(config.concurrency) });
   if (node.type === 'loop')
@@ -143,7 +157,7 @@ function PipelineCard({ data, selected }: NodeProps<CardNode>) {
         ) : null}
       </div>
       <strong>{data.id.replace(/_/g, ' ')}</strong>
-      <p className="node-summary">{nodeDetail(data.node, t)}</p>
+      <p className="node-summary">{nodeDetail(data.node, t, data.resourceLabel)}</p>
       {data.status ? (
         <div
           className={`execution-node-caption mt-1 mb-2.5 flex flex-col gap-1 text-[10px] mx-0 state-${data.status}`}
@@ -227,8 +241,10 @@ export default function GraphView({
   positions,
   onMove,
   onLayout,
+  resourceLabels,
 }: {
   graph: Graph;
+  resourceLabels?: Record<string, string | undefined>;
   selected?: string;
   onSelect: (id: string) => void;
   statuses?: Record<string, NodeStatus>;
@@ -417,10 +433,22 @@ export default function GraphView({
         outputs: nodePorts(node, importedGraphs),
         editable,
         compact: !editable,
+        resourceLabel: resourceLabels?.[id],
       },
     }));
     return { nodes, edges };
-  }, [graph, selected, statuses, observations, importedGraphs, theme, editable, positions, t]);
+  }, [
+    graph,
+    selected,
+    statuses,
+    observations,
+    importedGraphs,
+    theme,
+    editable,
+    positions,
+    t,
+    resourceLabels,
+  ]);
   const nodes = useMemo(
     () => layoutNodes.map((node) => ({ ...node, data: { ...node.data, choosePort } })),
     [layoutNodes, choosePort],

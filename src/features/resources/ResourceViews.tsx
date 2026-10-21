@@ -9,49 +9,59 @@ import {
   KeyRound,
   Monitor,
   Moon,
-  ShieldCheck,
   Sun,
   Wrench,
 } from 'lucide-react';
-import { useState } from 'react';
-import { Empty } from '../../components/ui';
+import { type ReactNode, useEffect, useId, useState } from 'react';
+import { engineEndpoint } from '../../lib/engine/client';
 import type { EngineController } from '../../lib/engine/useEngine';
 import { type Locale, type MessageKey, useI18n } from '../../lib/i18n';
 import { openProjectDocs } from '../../lib/native';
+import type { SavedConnection, SavedMcpConnection } from '../../lib/setup';
 import type { Theme } from '../../lib/theme';
 import type { Pipeline } from '../../lib/types';
-import { record } from '../../lib/types';
+import { DataBlock } from '../engine/execution/DataBlock';
+import DesktopControlSetup from './DesktopControlSetup';
+import { EngineConnections } from './EngineConnections';
+import EngineSetup from './EngineSetup';
+import McpSetup from './McpSetup';
+import ModelSetup from './ModelSetup';
+import ResourceAssignments, { type ResourceKind } from './ResourceAssignments';
 
 export function ConnectionsView({
+  tour,
   pipeline,
   onSource,
+  onEditNode,
+  onManage,
   engine,
+  modelConnections = [],
+  mcpConnections = [],
 }: {
+  tour?: ReactNode;
   engine: EngineController;
+  modelConnections?: SavedConnection[];
+  mcpConnections?: SavedMcpConnection[];
   pipeline?: Pipeline;
-  onSource: (kind: 'models' | 'mcp' | 'sandboxes' | 'secrets') => void;
+  onSource: (kind: ResourceKind) => void;
+  onEditNode: (path: string[], kind: ResourceKind) => void;
+  onManage: (kind: ResourceKind) => void;
 }) {
   const { t } = useI18n();
-  const [tab, setTab] = useState<'models' | 'mcp' | 'sandboxes' | 'secrets'>('models');
+  const [tab, setTab] = useState<ResourceKind>('models');
   const meta = {
-    models: { title: t('resources.models'), empty: 'resources.noModelsDeclared', icon: Bot },
-    mcp: { title: t('resources.mcpTools'), empty: 'resources.noMcpToolsDeclared', icon: Wrench },
-    sandboxes: {
-      title: t('resources.sandboxes'),
-      empty: 'resources.noSandboxesDeclared',
-      icon: Box,
-    },
+    models: { title: 'resources.models', icon: Bot, manage: 'editor.connectModelSources' },
+    mcp: { title: 'resources.mcpTools', icon: Wrench, manage: 'editor.connectMcp' },
+    sandboxes: { title: 'resources.sandboxes', icon: Box, manage: 'editor.manageSandboxes' },
     secrets: {
-      title: t('resources.secretReferences'),
-      empty: 'resources.noSecretReferencesDeclared',
+      title: 'resources.secretReferences',
       icon: KeyRound,
+      manage: 'resources.manageEngine',
     },
-  } satisfies Record<typeof tab, { title: string; empty: MessageKey; icon: typeof Bot }>;
-  const resources = Object.entries(pipeline?.spec[tab] ?? {});
-  const Icon = meta[tab].icon;
+  } satisfies Record<ResourceKind, { title: MessageKey; icon: typeof Bot; manage: MessageKey }>;
   return (
     <section className="page pb-8.75 min-h-full">
-      <header className="page-heading flex items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">
+      <header className="page-heading flex flex-wrap items-center justify-between gap-5 pt-5 pb-7.5 shrink-0 px-8">
         <div>
           <div className="breadcrumb text-[10px] text-muted flex items-center gap-2.25 mb-3">
             {t('resources.workspace')}
@@ -60,7 +70,7 @@ export function ConnectionsView({
           </div>
           <h1>{t('resources.modelsTools')}</h1>
           <p>
-            {t('resources.logicalResourcesDeclaredByName', {
+            {t('resources.connectionsForPipeline', {
               name:
                 pipeline?.metadata.title ??
                 pipeline?.metadata.name ??
@@ -68,158 +78,136 @@ export function ConnectionsView({
             })}
           </p>
         </div>
-        <button type="button" className="button" onClick={() => onSource(tab)}>
-          {t('resources.editPipelineResources')}
-          <ArrowUpRight size={15} />
+        <button type="button" className="button" onClick={() => onManage(tab)}>
+          {t(meta[tab].manage)} <ArrowUpRight size={15} />
         </button>
       </header>
-      <div className="notice flex items-start gap-3 border border-solid border-line-strong rounded-[16px] bg-[rgb(var(--accent-rgb)_/_0.027)] text-accent mb-6.25 px-5 py-4.5">
-        <ShieldCheck size={18} />
-        <div>
-          <strong>{t('resources.resolvedByYourEngineProfile')}</strong>
-          <p>{t('resources.aPipelineDeclaresAliasesTheTrustedEngineSupplies')}</p>
-        </div>
-      </div>
-      {engine.info ? (
-        <div className="settings-card max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5">
-          <h2>{t('resources.engineResourceCatalog')}</h2>
-          <p className="small muted text-[11px] text-muted">
-            {t('resources.connectionsConfiguredInTheEngineProfilesAvailabilityReflects')}
-          </p>
-          <div className="engine-resource-list grid grid-cols-[repeat(auto-fit,_minmax(180px,_1fr))] gap-4 mt-4">
-            {engine.resources.map((resource) => (
-              <div key={JSON.stringify([resource.kind, resource.title, resource.id])}>
-                <strong>{resource.title}</strong>
-                <code>{resource.id}</code>
-                <span>
-                  {resource.kind} · {resource.status}
-                </span>
-                <small>{resource.capabilities.join(', ')}</small>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      <div className="underline-tabs resource-tabs flex border-b border-solid border-b-line gap-6.25 shrink-0 mb-6.25 p-0">
-        {Object.entries(meta).map(([key, m]) => (
-          <button
-            type="button"
-            key={key}
-            onClick={() => setTab(key as typeof tab)}
-            className={key === tab ? 'active' : ''}
-          >
-            <m.icon size={16} />
-            {m.title}
-            <span className="counter text-[9px] bg-surface-active rounded-[3px] text-secondary px-1 py-px">
-              {Object.keys(pipeline?.spec[key as typeof tab] ?? {}).length}
-            </span>
-          </button>
-        ))}
-      </div>
-      {resources.length ? (
-        <div className="resource-grid grid grid-cols-[repeat(auto-fill,_minmax(240px,_1fr))] gap-4.75">
-          {resources.map(([id, resource]) => (
-            <article
-              className="resource-card border border-solid border-line rounded-[20px] bg-surface p-6.25"
-              key={id}
+      {tour}
+      <div className="underline-tabs resource-tabs flex flex-wrap border-b border-solid border-b-line gap-x-6.25 gap-y-2 shrink-0 mb-6.25 p-0">
+        {(Object.keys(meta) as ResourceKind[]).map((key) => {
+          const Icon = meta[key].icon;
+          return (
+            <button
+              type="button"
+              key={key}
+              onClick={() => setTab(key)}
+              className={key === tab ? 'active' : ''}
             >
-              <div className="inline-row spread flex items-center gap-2.5 justify-between">
-                <span className="resource-icon grid place-items-center w-11 h-11 rounded-[12px] bg-[rgb(var(--accent-rgb)_/_0.094)] border border-solid border-[rgb(var(--accent-rgb)_/_0.188)] text-secondary">
-                  <Icon size={22} />
-                </span>
-                <span className="type-label inline-flex text-[10px] text-secondary bg-[rgb(var(--overlay-rgb)_/_0.016)] border border-solid border-line-strong rounded-[30px] px-2 py-1.25">
-                  {t('resources.declared')}
-                </span>
-              </div>
-              <h2>{id}</h2>
-              <div className="detail-field flex flex-col gap-2.25 mb-5.75">
-                <span>
-                  {t(
-                    tab === 'sandboxes'
-                      ? 'resources.profile'
-                      : tab === 'secrets'
-                        ? 'resources.secretReference'
-                        : 'resources.connection',
-                  )}
-                </span>
-                <code>
-                  {String(
-                    record(resource).connection ?? record(resource).profile ?? record(resource).ref,
-                  )}
-                </code>
-              </div>
-              {Array.isArray(record(resource).requires) ? (
-                <div className="capability-list flex gap-1.5 flex-wrap">
-                  {(record(resource).requires as string[]).map((capability) => (
-                    <span key={capability}>{capability}</span>
-                  ))}
-                </div>
-              ) : null}
-              <footer>
-                <span className="dot amber inline-block w-1.5 h-1.5 bg-surface-raised rounded-full shrink-0" />
-                {t('resources.checkedDuringRunAdmission')}
-              </footer>
-            </article>
-          ))}
-        </div>
+              <Icon size={16} /> {t(meta[key].title)}
+            </button>
+          );
+        })}
+      </div>
+      {pipeline ? (
+        <ResourceAssignments
+          pipeline={pipeline}
+          kind={tab}
+          models={modelConnections}
+          mcp={mcpConnections}
+          engineResources={engine.info && !engine.error ? engine.resources : []}
+          engineConnected={!!engine.info && !engine.error}
+          onEdit={(path) => onEditNode(path, tab)}
+        />
       ) : (
-        <Empty icon={<Icon size={30} />} title={t(meta[tab].empty)}>
-          {t('resources.addResourceAliasesInThePipelineYamlWhen')}
-        </Empty>
+        <p className="mx-7.5 mb-8 text-[13px] text-secondary">{t('resources.selectPipeline')}</p>
       )}
+      {pipeline ? (
+        <details className="resource-bindings mx-7.5 my-6 border-t border-solid border-line pt-4">
+          <summary className="cursor-pointer text-[12px] text-secondary">
+            {t('resources.advancedBindings')}
+          </summary>
+          <p className="my-3 max-w-180 text-[12px] leading-5 text-muted">
+            {t('resources.aliasExplanation')}
+          </p>
+          <DataBlock label={t('resources.bindingDetails')} value={pipeline.spec[tab] ?? {}} open />
+          <button type="button" className="text-button my-3" onClick={() => onSource(tab)}>
+            {t('resources.editPipelineResources')} <ArrowUpRight size={14} />
+          </button>
+        </details>
+      ) : null}
+      {engine.info ? (
+        <details className="mx-7.5 my-6 border-t border-solid border-line pt-4">
+          <summary className="cursor-pointer text-[12px] text-secondary">
+            {t('resources.availableEngineConnections')}
+          </summary>
+          <div className="mt-4">
+            <EngineConnections
+              resources={engine.resources}
+              profiles={engine.profiles}
+              sources={modelConnections}
+              mcpSources={mcpConnections}
+            />
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }
 
 export function SettingsView({
+  tour,
   engine,
   engineUrl,
+  engineMode,
   desktop,
   theme,
   onTheme,
   language,
   onLanguage,
-  onSaveUrl,
   onBackup,
   onRestore,
+  onStartTour,
   onNotify,
+  onSetupReady,
+  onSetupStopped,
+  onManualEngineAction,
 }: {
+  tour?: ReactNode;
   engine: EngineController;
   engineUrl: string;
+  engineMode?: 'local' | 'manual';
   desktop: boolean;
   theme: Theme;
   onTheme: (theme: Theme) => void;
   language: Locale;
   onLanguage: (locale: Locale) => void;
-  onSaveUrl: (url: string) => void;
   onBackup: () => void;
   onRestore: () => void;
+  onStartTour: () => void;
   onNotify: (message: string) => void;
+  onSetupReady: (endpoint: string) => Promise<void>;
+  onSetupStopped: (endpoint: string | undefined) => Promise<void>;
+  onManualEngineAction?: (endpoint?: string) => void;
 }) {
   const { t, message } = useI18n();
   const [url, setUrl] = useState(engineUrl);
   const [error, setError] = useState('');
   const [token, setToken] = useState('');
-  function save() {
+  const [manualOpen, setManualOpen] = useState(!desktop || engineMode === 'manual');
+  const manualConnected = !!engine.info && (!desktop || engineMode === 'manual');
+  const manualError = !desktop || engineMode === 'manual' ? engine.error : '';
+  const connectionHelp = useId();
+  useEffect(() => setUrl(engineUrl), [engineUrl]);
+  async function connect() {
+    const accessToken = token || undefined;
+    setToken('');
+    let endpoint: string;
     try {
-      const parsed = new URL(url);
-      if (
-        !['http:', 'https:'].includes(parsed.protocol) ||
-        parsed.username ||
-        parsed.password ||
-        parsed.search ||
-        parsed.hash
-      )
-        throw new Error('Use an HTTP(S) base URL without credentials, query or fragment.');
-      onSaveUrl(parsed.toString().replace(/\/$/, ''));
+      endpoint = engineEndpoint(url.trim(), accessToken);
       setError('');
-      onNotify('resources.engineAddressSavedConnectToCheckItsProtocol');
     } catch (e) {
       setError(
         e instanceof TypeError || !(e instanceof Error)
           ? 'resources.enterAValidEngineUrl'
           : e.message,
       );
+      return;
+    }
+    onManualEngineAction?.();
+    const connected = await engine.connect(endpoint, accessToken);
+    if (connected) {
+      setUrl(endpoint);
+      onManualEngineAction?.(endpoint);
     }
   }
   return (
@@ -238,6 +226,125 @@ export function SettingsView({
           v0.1.0
         </span>
       </header>
+      {tour}
+      <ModelSetup />
+      <McpSetup />
+      <EngineSetup
+        onReady={onSetupReady}
+        onStopped={onSetupStopped}
+        connectedUrl={engine.info ? engineUrl : undefined}
+      />
+      <DesktopControlSetup />
+      <details
+        data-tour="engine"
+        open={manualOpen}
+        onToggle={(event) => setManualOpen(event.currentTarget.open)}
+        className="settings-card existing-engine max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 items-center gap-3 text-[18px] font-medium text-secondary">
+            <Globe size={20} />
+            {t('resources.existingEngine')}
+          </span>
+          <ChevronRight
+            size={18}
+            className={`shrink-0 text-muted transition-transform duration-150 ${manualOpen ? 'rotate-90' : ''}`}
+          />
+        </summary>
+        <p id={connectionHelp} className="mt-3 max-w-[65ch] text-[12px] leading-relaxed text-muted">
+          {t('resources.existingEngineHelp')}
+        </p>
+        <form
+          className="mt-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void connect();
+          }}
+        >
+          <label className="field flex flex-col gap-2 text-[12px] text-secondary mb-5">
+            {t('resources.engineBaseUrl')}
+            <input
+              className="w-full min-w-0"
+              aria-label={t('resources.engineBaseUrl')}
+              aria-describedby={connectionHelp}
+              placeholder="https://engine.example.com"
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              disabled={engine.connecting}
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+          </label>
+          <label className="field flex flex-col gap-2 text-[12px] text-secondary mb-5">
+            {t('resources.engineAccessToken')}
+            <input
+              className="w-full min-w-0"
+              type="password"
+              aria-label={t('resources.engineAccessToken')}
+              aria-describedby={`${connectionHelp}-token`}
+              autoComplete="off"
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+              disabled={engine.connecting}
+            />
+            <small id={`${connectionHelp}-token`} className="text-muted">
+              {t('resources.existingEngineTokenHelp')}
+            </small>
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="submit" className="button primary" disabled={engine.connecting}>
+              {t(engine.connecting ? 'resources.connecting' : 'resources.connectEngine')}
+            </button>
+            {manualConnected ? (
+              <button
+                type="button"
+                className="button"
+                onClick={() => {
+                  onManualEngineAction?.();
+                  void engine.disconnect().catch((error) => onNotify(String(error)));
+                }}
+              >
+                {t('resources.disconnect')}
+              </button>
+            ) : null}
+          </div>
+        </form>
+        {error || manualError ? (
+          <p
+            className="form-error text-secondary text-[11px] leading-[1.8] mt-2.5 whitespace-pre-wrap"
+            role="alert"
+          >
+            {error ? message(error) : `${t('resources.connectionError')}: ${manualError}`}
+          </p>
+        ) : null}
+        {manualConnected && engine.info ? (
+          <div className="mt-6 border-t border-solid border-line pt-4 text-[12px]">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-secondary">
+              <span>{t(engine.error ? 'resources.unavailable' : 'resources.connected')}</span>
+              <span>{engine.info.protocol}</span>
+            </div>
+            <p className="mt-2 break-all text-muted">{engineUrl}</p>
+            <code className="mt-1 block break-all text-muted">{engine.info.engineId}</code>
+            <small className="mt-2 block text-muted">
+              {t('resources.profilesProfilesResourcesResources', {
+                profiles: engine.profiles.length,
+                resources: engine.resources.length,
+              })}
+            </small>
+          </div>
+        ) : null}
+      </details>
+      <div className="settings-card max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5">
+        <div className="settings-section-heading flex items-center justify-between flex-wrap gap-4">
+          <div className="min-w-60">
+            <h2>{t('tour.settings.title')}</h2>
+            <p>{t('tour.settings.description')}</p>
+          </div>
+          <button type="button" className="button shrink-0" onClick={onStartTour}>
+            {t('tour.settings.start')}
+          </button>
+        </div>
+      </div>
       <div className="settings-card max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5">
         <div className="settings-section-heading flex items-center gap-3.75 text-muted mb-6.5">
           <Sun size={21} />
@@ -328,106 +435,7 @@ export function SettingsView({
           </select>
         </label>
       </div>
-      <div className="settings-card max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5">
-        <div className="settings-section-heading flex items-center gap-3.75 text-muted mb-6.5">
-          <Globe size={21} />
-          <div>
-            <h2>{t('resources.engine')}</h2>
-            <p>{t('resources.connectToYourKnotraEngineToRunWorkflows')}</p>
-          </div>
-          <span className={`status status-${engine.info ? 'succeeded' : 'pending'}`}>
-            <span />
-            {t(
-              engine.info
-                ? engine.error
-                  ? 'resources.unavailable'
-                  : 'resources.connected'
-                : 'resources.disconnected',
-            )}
-          </span>
-        </div>
-        <p className="muted text-muted">{t('resources.quickstartHint')}</p>
-        <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-          {t('resources.engineBaseUrl')}
-          <div className="inline-row flex items-center gap-2.5">
-            <input
-              aria-label={t('resources.engineBaseUrl')}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-            <button type="button" className="button" onClick={save}>
-              {t('resources.saveAddress')}
-            </button>
-          </div>
-        </label>
-        {error ? (
-          <p
-            className="form-error text-secondary text-[11px] leading-[1.8] mt-2.5 whitespace-pre-wrap"
-            role="alert"
-          >
-            {message(error)}
-          </p>
-        ) : null}
-        <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-          {t('resources.accessTokenOptionalForLoopback')}
-          <input
-            type="password"
-            aria-label={t('resources.engineAccessToken')}
-            autoComplete="off"
-            value={token}
-            onChange={(event) => setToken(event.target.value)}
-          />
-        </label>
-        <div className="inline-row flex items-center gap-2.5">
-          <button
-            type="button"
-            className="button primary"
-            disabled={engine.connecting}
-            onClick={() => {
-              void engine.connect(url, token || undefined);
-              setToken('');
-            }}
-          >
-            {t(engine.connecting ? 'resources.connecting' : 'resources.connectEngine')}
-          </button>
-          {engine.info ? (
-            <button
-              type="button"
-              className="button"
-              onClick={() => {
-                void engine.disconnect().catch((error) => onNotify(String(error)));
-              }}
-            >
-              {t('resources.disconnect')}
-            </button>
-          ) : null}
-        </div>
-        {engine.error ? (
-          <p
-            className="form-error text-secondary text-[11px] leading-[1.8] mt-2.5 whitespace-pre-wrap"
-            role="alert"
-          >
-            {t('resources.connectionError')}: {engine.error}
-          </p>
-        ) : null}
-        {engine.info ? (
-          <div className="detail-field flex flex-col gap-2.25 mb-5.75">
-            <span>{t('resources.engineIdentityProtocol')}</span>
-            <code>
-              {engine.info.engineId} · {engine.info.protocol}
-            </code>
-            <small>
-              {t('resources.profilesProfilesResourcesResources', {
-                profiles: engine.profiles.length,
-                resources: engine.resources.length,
-              })}
-            </small>
-          </div>
-        ) : null}
-        <div className="notice small text-[11px] flex items-start gap-3 border border-solid border-line-strong rounded-[16px] bg-[rgb(var(--accent-rgb)_/_0.027)] text-accent mb-6.25 px-5 py-4.5">
-          {t('resources.startYourLocalKnotraEngineAndConnectUsing')}
-        </div>
-      </div>
+
       <div className="settings-card max-w-250 border border-solid border-line rounded-[20px] bg-surface mb-6 p-7.5">
         <div className="settings-section-heading flex items-center gap-3.75 text-muted mb-6.5">
           <Monitor size={21} />
@@ -454,31 +462,20 @@ export function SettingsView({
             {t('resources.chooseBackup')}
           </button>
         </div>
-        <div className="setting-row flex items-center justify-between gap-6.25 border-t border-solid border-t-line px-0 py-5">
-          <div>
-            <strong>{t('resources.applicationRuntime')}</strong>
-            <p>
-              {t(
-                desktop
-                  ? 'resources.tauriDesktopNativePackageDialogs'
-                  : 'resources.browserPreviewYamlAndZipImportExport',
-              )}
-            </p>
-          </div>
-          <span className="type-label inline-flex text-[10px] text-secondary bg-[rgb(var(--overlay-rgb)_/_0.016)] border border-solid border-line-strong rounded-[30px] px-2 py-1.25">
-            {t(desktop ? 'resources.desktop' : 'resources.preview')}
-          </span>
-        </div>
       </div>
-      <div className="about-card flex items-center gap-3.75 max-w-212.5 px-0 py-4">
-        <img src="/knotra.svg" alt="" />
-        <div>
-          <h2>Knotra</h2>
-          <p>{t('resources.makeTheProcessExplicit')}</p>
+      <footer className="about-card flex flex-wrap items-center justify-between gap-x-6 gap-y-3 max-w-250 px-7.5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <img src="/knotra.svg" alt="" className="size-8 shrink-0" />
+          <div>
+            <h2 className="text-[15px] font-medium leading-tight tracking-tight text-secondary">
+              Knotra
+            </h2>
+            <p className="mt-1 text-[11px] text-muted">{t('resources.makeTheProcessExplicit')}</p>
+          </div>
         </div>
         <button
           type="button"
-          className="text-button"
+          className="text-button inline-flex min-h-11 shrink-0 items-center gap-2 text-[11px] text-muted"
           onClick={() => {
             void openProjectDocs().catch((error) => onNotify(String(error)));
           }}
@@ -486,7 +483,7 @@ export function SettingsView({
           {t('resources.projectDocumentation')}
           <ExternalLink size={14} />
         </button>
-      </div>
+      </footer>
     </section>
   );
 }

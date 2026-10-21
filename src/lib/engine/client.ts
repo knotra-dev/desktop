@@ -76,7 +76,7 @@ function checkSafeNumbers(value: unknown, message: string): void {
     for (const item of Object.values(value)) checkSafeNumbers(item, message);
 }
 
-function endpoint(url: string, token?: string) {
+export function engineEndpoint(url: string, token?: string) {
   const parsed = new URL(url);
   const local =
     parsed.hostname === 'localhost' ||
@@ -194,9 +194,9 @@ async function jsonRequest(
 }
 
 export async function connectEngine(address: string, token?: string): Promise<EngineInfo> {
+  const addressUrl = engineEndpoint(address, token);
   await disconnectEngine();
   const revision = sessionRevision;
-  const addressUrl = endpoint(address, token);
   try {
     let info: unknown;
     if (desktop) info = await invoke('engine_connect', { url: addressUrl, token: token || null });

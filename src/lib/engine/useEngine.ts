@@ -102,7 +102,7 @@ export function useEngine(notify: (message: string) => void) {
     const timer = setInterval(() => void refresh(false), 10000);
     return () => clearInterval(timer);
   }, [refresh, info]);
-  async function connect(url: string, token?: string) {
+  const connect = useCallback(async (url: string, token?: string) => {
     const current = ++revision.current;
     setInfo(undefined);
     setConnecting(true);
@@ -164,6 +164,7 @@ export function useEngine(notify: (message: string) => void) {
       setPending(saved.pending);
       setSessionKey(engineSessionKey());
       setInfo(info);
+      return info;
     } catch (error) {
       if (current === revision.current) {
         await disconnectEngine().catch(() => {});
@@ -172,7 +173,7 @@ export function useEngine(notify: (message: string) => void) {
     } finally {
       if (current === revision.current) setConnecting(false);
     }
-  }
+  }, []);
   async function disconnect() {
     const current = ++revision.current;
     await disconnectEngine();

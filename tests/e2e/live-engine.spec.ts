@@ -19,7 +19,6 @@ async function navigate(page: Page, name: string) {
 async function connect(page: Page) {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint!);
-  await page.getByRole('button', { name: 'Save address' }).click();
   await page.getByRole('button', { name: 'Connect engine' }).click();
   await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
   await expect(page.getByText(/\d+ profiles · \d+ resources/)).toBeVisible();
@@ -126,7 +125,10 @@ test('real Ollama run publishes an artifact and replays history on a fresh clien
   expect(readFileSync((await exported.path())!)).toEqual(Buffer.from(`${run.outputs.greeting}\n`));
 
   // A separate context has neither localStorage metadata nor IndexedDB event IDs/cursor.
-  const freshContext = await browser.newContext({ locale: 'en-US' });
+  const freshContext = await browser.newContext({
+    locale: 'en-US',
+    storageState: test.info().project.use.storageState,
+  });
   try {
     const fresh = await freshContext.newPage();
     fresh.on('pageerror', (error) => errors.push(error.message));
@@ -233,10 +235,11 @@ Path(os.environ['KNOTRA_OUTPUT_JSON']).write_text('{}')
   await expect(page.getByRole('button', { name: 'Review request', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Review request', exact: true }).click();
   await expect(page.getByText('Approve the binary copy.', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Advanced JSON', exact: true }).click();
   await expect(page.locator('.review-card .json-view').first()).toContainText('sha256');
   await page.getByRole('textbox', { name: 'Engine review response' }).fill('{"approved":false}');
   await page.getByRole('button', { name: 'Submit response' }).click();
-  await expect(page.getByRole('alert')).toContainText('JSON schema');
+  await expect(page.getByRole('alert')).toContainText('Complete the required fields');
   await page.getByRole('textbox', { name: 'Engine review response' }).fill('{"approved":true}');
   await page.getByRole('button', { name: 'Submit response' }).click();
   await expect(page.getByRole('heading', { name: 'No open engine requests' })).toBeVisible();

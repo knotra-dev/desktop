@@ -57,7 +57,12 @@ export function PipelinesView({
             <FolderOpen size={15} />
             {t('common.openPackage')}
           </button>
-          <button type="button" className="button primary" onClick={onCreate}>
+          <button
+            type="button"
+            className="button primary"
+            data-tour="create-pipeline"
+            onClick={onCreate}
+          >
             <Plus size={15} />
             {t('shell.newPipeline')}
           </button>
@@ -173,7 +178,7 @@ export function TemplateLibrary({ onSelect }: { onSelect: (id: string) => void }
         className="template-categories underline-tabs flex border-b border-solid border-b-line gap-5.25 shrink-0 mt-2 mb-0 px-5.25 py-0 mx-7.5"
         aria-label={t('library.categories')}
       >
-        {(['starter', 'block', 'demo'] as const).map((value) => (
+        {(['starter', 'block'] as const).map((value) => (
           <button
             type="button"
             key={value}
@@ -205,6 +210,7 @@ export function TemplateLibrary({ onSelect }: { onSelect: (id: string) => void }
                   kind={
                     (
                       {
+                        research: 'agent',
                         hello: 'llm',
                         'research-dossier': 'agent',
                         'reviewed-research': 'human',

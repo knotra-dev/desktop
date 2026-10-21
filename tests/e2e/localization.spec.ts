@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
-import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
+import { activeWorkspace, addResearchPipeline, openActiveEditor } from './authoring';
 
 test.use({ locale: 'en-US' });
 
@@ -23,7 +23,7 @@ async function persisted(page: Page) {
 
 async function open(page: Page) {
   await page.goto('/');
-  await addResearchDemo(page);
+  await addResearchPipeline(page);
   await expect.poll(() => persisted(page)).not.toBeNull();
 }
 
@@ -149,17 +149,17 @@ test('language switches live and persists without changing saved user content or
   await expect(page.getByRole('combobox', { name: 'Язык', exact: true })).toHaveValue('ru');
   expect(await contentSnapshot(page)).toEqual(before);
 
-  await page.getByRole('button', { name: ru('resources.saveAddress'), exact: true }).click();
-  await expect(page.locator('.toast')).toHaveText(
-    ru('resources.engineAddressSavedConnectToCheckItsProtocol'),
-  );
+  await openActiveEditor(page);
+  await page.getByRole('button', { name: ru('common.save'), exact: true }).click();
+  await expect(page.locator('.toast')).toHaveText(ru('messages.draftSavedInThisLocalWorkspace'));
+  await settings(page, 'ru');
   await page.getByRole('combobox', { name: 'Язык', exact: true }).selectOption('en');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(
     page.getByRole('heading', { name: 'Workspace settings', exact: true }),
   ).toBeVisible();
   await expect(page.locator('.toast')).toHaveText(
-    label('resources.engineAddressSavedConnectToCheckItsProtocol', 'en'),
+    label('messages.draftSavedInThisLocalWorkspace', 'en'),
   );
   await expect.poll(async () => (await persisted(page))?.locale).toBe('en');
   expect(await contentSnapshot(page)).toEqual(before);
@@ -188,7 +188,7 @@ test('Russian navigation, search, Library and editor expose localized accessible
   const engineUrl = page.getByRole('textbox', { name: ru('resources.engineBaseUrl'), exact: true });
   const savedEngineUrl = (await persisted(page)).engineUrl;
   await engineUrl.fill('not an engine URL');
-  await page.getByRole('button', { name: ru('resources.saveAddress'), exact: true }).click();
+  await page.getByRole('button', { name: ru('resources.connectEngine'), exact: true }).click();
   await expect(page.getByRole('alert')).toHaveText(ru('resources.enterAValidEngineUrl'));
   expect((await persisted(page)).engineUrl).toBe(savedEngineUrl);
   await engineUrl.fill(savedEngineUrl);
@@ -209,7 +209,7 @@ test('Russian navigation, search, Library and editor expose localized accessible
   await expect(
     library.getByRole('heading', { name: ru('library.title'), exact: true }),
   ).toBeVisible();
-  await library.getByRole('button', { name: ru('library.category.demo'), exact: true }).click();
+  await library.getByRole('button', { name: ru('library.category.block'), exact: true }).click();
   await expect(
     library.getByRole('heading', { name: ru('shell.researchBrief'), exact: true }),
   ).toBeVisible();

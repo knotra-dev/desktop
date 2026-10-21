@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { parse } from 'yaml';
+import { addStarterPipeline, pipelineAction } from './authoring';
 
 const key = 'knotra.workspace.v1';
 const titles = [
@@ -11,41 +12,47 @@ const titles = [
   'From brief to reviewed publication',
 ];
 
-test('fresh launch lists five runnable starters, filters them, and opens editors explicitly', async ({
+test('fresh launch starts empty and only lists starters the user chooses', async ({
   page,
 }, testInfo) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await expect(page.locator('.pipeline-card')).toHaveCount(5);
+  await expect(page.locator('.pipeline-card')).toHaveCount(0);
   await expect(page.locator('.graph-view')).toHaveCount(0);
-  for (const title of titles)
-    await expect(page.getByRole('button', { name: `Open ${title}`, exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Create your first pipeline', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.empty').getByRole('button', { name: 'New pipeline', exact: true }),
+  ).toBeVisible();
+  await addStarterPipeline(page, titles[0]);
+  await addStarterPipeline(page, titles[1]);
+  const navigation = page.getByRole('navigation', { name: 'Main navigation' });
+  await navigation.getByRole('button', { name: 'Pipelines', exact: true }).click();
+  await expect(page.locator('.pipeline-card')).toHaveCount(2);
   await page.getByRole('textbox', { name: 'Search pipelines' }).fill('source materials');
   await expect(page.locator('.pipeline-card')).toHaveCount(1);
   await page.getByRole('button', { name: `Open ${titles[1]}`, exact: true }).click();
   await expect(page.locator('.graph-view')).toBeVisible();
   await expect(page.getByRole('heading', { name: titles[1], exact: true })).toBeVisible();
-  await page
-    .getByRole('navigation', { name: 'Main navigation' })
-    .getByRole('button', { name: 'Pipelines', exact: true })
-    .click();
-  await expect(page.locator('.pipeline-card')).toHaveCount(5);
-  await page.locator('.sidebar-pipelines > button').filter({ hasText: titles[3] }).click();
-  await expect(page.getByRole('heading', { name: titles[3], exact: true })).toBeVisible();
+  await navigation.getByRole('button', { name: 'Pipelines', exact: true }).click();
+  await expect(page.locator('.pipeline-card')).toHaveCount(2);
+  await page.locator('.sidebar-pipelines > button').filter({ hasText: titles[0] }).click();
+  await expect(page.getByRole('heading', { name: titles[0], exact: true })).toBeVisible();
   await page.reload();
-  await expect(page.locator('.pipeline-card')).toHaveCount(5);
+  await expect(page.locator('.pipeline-card')).toHaveCount(2);
   await expect(page.locator('.graph-view')).toHaveCount(0);
   const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), key);
-  expect(saved.starterRevision).toBe(4);
+  expect(saved.starterRevision).toBe(5);
   expect(
     saved.workspaces.map((workspace: { source: string }) => parse(workspace.source).metadata.title),
-  ).toEqual(titles);
-  await page.screenshot({ path: testInfo.outputPath('starter-pipeline-list.png'), fullPage: true });
+  ).toEqual(titles.slice(0, 2));
+  await page.screenshot({ path: testInfo.outputPath('chosen-pipeline-list.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
 
-test('Library separates runnable starters, building blocks and guided demo and opens a selected template', async ({
+test('Library separates runnable starters and building blocks and opens a selected template', async ({
   page,
 }) => {
   await page.goto('/');
@@ -58,10 +65,9 @@ test('Library separates runnable starters, building blocks and guided demo and o
     'true',
   );
   await expect(page.locator('.template-card')).toHaveCount(5);
-  await page.getByRole('button', { name: 'Guided demo', exact: true }).click();
-  await expect(page.locator('.template-card')).toHaveCount(1);
-  await expect(page.locator('.template-card')).toContainText('Research brief');
+  await expect(page.getByRole('button', { name: 'Guided demo', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Building blocks', exact: true }).click();
+  await expect(page.locator('.template-card').filter({ hasText: 'Research brief' })).toHaveCount(1);
   await expect(
     page.locator('.template-card').filter({ hasText: 'Local Ollama greeting' }),
   ).toHaveCount(1);
@@ -69,7 +75,25 @@ test('Library separates runnable starters, building blocks and guided demo and o
   await page.locator('.template-card').filter({ hasText: titles[0] }).click();
   await expect(page.getByRole('heading', { name: titles[0], exact: true })).toBeVisible();
   await expect(page.locator('.graph-view')).toBeVisible();
-  await expect(page.locator('.sidebar-pipelines > button')).toHaveCount(6);
+  await expect(page.locator('.sidebar-pipelines > button')).toHaveCount(1);
+});
+
+test('deleting the last chosen starter keeps the workspace empty after reload', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await addStarterPipeline(page, titles[0]);
+  await pipelineAction(page, 'Delete pipeline');
+  await page.getByRole('button', { name: 'Remove pipeline', exact: true }).click();
+  await expect(page.locator('.pipeline-card')).toHaveCount(0);
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: 'Create your first pipeline', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.sidebar-pipelines > button')).toHaveCount(0);
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), key);
+  expect(saved.workspaces).toEqual([]);
+  expect(saved.starterRevision).toBe(5);
 });
 
 test('unreadable local data remains downloadable and a reviewed legacy backup restores exactly after reload', async ({
@@ -129,12 +153,12 @@ test('unreadable local data remains downloadable and a reviewed legacy backup re
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   const restored = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)!), key);
   expect(restored.workspaces).toEqual(backup.workspaces);
-  expect(restored.starterRevision).toBe(4);
+  expect(restored.starterRevision).toBe(5);
 });
 
 test('a disconnected starter directs execution to engine settings', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: `Open ${titles[0]}`, exact: true }).click();
+  await addStarterPipeline(page, titles[0]);
   await expect(page.getByRole('button', { name: 'Run', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Connect engine', exact: true }).click();
   await expect(
@@ -151,15 +175,17 @@ test.describe('Russian starter workspace', () => {
     const ru = JSON.parse(readFileSync('src/locales/ru.json', 'utf8'));
     await page.goto('/');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-    await expect(page.locator('.pipeline-card')).toHaveCount(5);
-    await expect(page.locator('.pipeline-card').first()).not.toContainText(titles[0]);
+    await expect(page.locator('.pipeline-card')).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: ru['pipelines.empty'], exact: true }),
+    ).toBeVisible();
     await page.getByRole('button', { name: ru['navigation.settings'], exact: true }).click();
     await page.getByRole('radio', { name: ru['resources.light'], exact: true }).click();
     const navigation = page.getByRole('navigation', { name: ru['navigation.main'] });
     await navigation.getByRole('button', { name: ru['navigation.pipelines'], exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     await page.screenshot({
-      path: testInfo.outputPath('starter-pipeline-list-ru-light.png'),
+      path: testInfo.outputPath('empty-pipeline-list-ru-light.png'),
       fullPage: true,
     });
     await page
@@ -167,6 +193,7 @@ test.describe('Russian starter workspace', () => {
       .getByRole('button', { name: ru['shell.newPipeline'], exact: true })
       .click();
     await expect(page.locator('.template-card')).toHaveCount(5);
+    await expect(page.locator('.template-card').first()).not.toContainText(titles[0]);
     await page.screenshot({
       path: testInfo.outputPath('starter-library-ru-light.png'),
       fullPage: true,

@@ -21,13 +21,6 @@
 .engine-instance-list article > .button {
   margin-top: 12px;
 }
-.engine-resource-list code,
-.engine-resource-list span,
-.engine-resource-list small {
-  display: block;
-  margin-top: 6px;
-  overflow-wrap: anywhere;
-}
 .main-content.execution-view {
   display: flex;
   flex-direction: column;

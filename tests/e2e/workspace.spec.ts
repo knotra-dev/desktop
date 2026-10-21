@@ -1,9 +1,13 @@
-import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 import { unzipSync, zipSync } from 'fflate';
-import { activeWorkspace, addResearchDemo, openActiveEditor } from './authoring';
+import {
+  activeWorkspace,
+  addResearchPipeline,
+  openActiveEditor,
+  pipelineAction,
+} from './authoring';
 
 async function navigate(page: Page, name: string) {
   await page
@@ -14,7 +18,7 @@ async function navigate(page: Page, name: string) {
 
 async function open(page: Page) {
   await page.goto('/');
-  await addResearchDemo(page);
+  await addResearchPipeline(page);
   await expect.poll(() => persisted(page)).not.toBeNull();
 }
 
@@ -109,7 +113,7 @@ test('authoring stays synchronized and navigation preference survives reload', a
   await expect
     .poll(async () => (await activeWorkspace(page)).source.includes('Check the sources carefully'))
     .toBe(true);
-  await expect(page.getByRole('button', { name: 'Run demo', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Run demo', exact: true })).toHaveCount(0);
   const expandedWidth = (await page.locator('.app-sidebar').boundingBox())!.width;
   await page.getByRole('button', { name: 'Collapse navigation' }).click();
   await expect
@@ -124,11 +128,13 @@ test('authoring stays synchronized and navigation preference survives reload', a
     'Check the sources carefully',
   );
   await navigate(page, 'Runs');
-  await expect(page.getByRole('heading', { name: 'Run history' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Engine runs', exact: true })).toBeVisible();
   await navigate(page, 'Inbox');
-  await expect(page.getByRole('heading', { name: "You're all caught up." })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Needs your response', exact: true }),
+  ).toBeVisible();
   await navigate(page, 'Artifacts');
-  await expect(page.getByRole('heading', { name: 'Artifacts', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Engine artifacts', exact: true })).toBeVisible();
   await navigate(page, 'Resources');
   await expect(page.getByRole('heading', { name: 'Models & tools' })).toBeVisible();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -178,95 +184,11 @@ test('complete ZIP package import preserves child contracts and every exported b
       .filter({ has: page.locator('strong').filter({ hasText: /^reply$/ }) }),
   ).toBeVisible();
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await download).path())!)));
   expect(Object.keys(exported).sort()).toEqual(Object.keys(contents).sort());
   for (const [path, bytes] of Object.entries(contents))
     expect(Buffer.from(exported[path]), path).toEqual(Buffer.from(bytes));
-});
-
-test('saved human request resumes once and produces a traceable artifact', async ({ page }) => {
-  await open(page);
-  const original = (await activeWorkspace(page)).source;
-  await page.getByRole('button', { name: 'Run demo', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Research topic' }).fill('Persistent review test');
-  await page.getByRole('button', { name: 'Start demo', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Review request' })).toBeVisible();
-  await expect.poll(async () => (await persisted(page)).runs[0]?.requestId).toBeTruthy();
-  const request = (await persisted(page)).runs[0].requestId;
-  await page.reload();
-  await openActiveEditor(page);
-  await navigate(page, 'Inbox');
-  expect((await persisted(page)).runs[0].requestId).toBe(request);
-  await page.getByRole('button', { name: 'JSON response', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Review JSON response' }).fill('{"feedback": 12}');
-  await page.getByRole('button', { name: 'Submit response' }).click();
-  await expect(page.getByRole('alert')).toBeVisible();
-  await page.getByRole('button', { name: 'Simple response', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Your feedback' }).fill('Reviewed and ready.');
-  await page.getByRole('button', { name: 'Submit response' }).click();
-  await expect.poll(async () => (await persisted(page)).runs[0]?.status).toBe('succeeded');
-  const run = (await persisted(page)).runs[0];
-  expect(run.source).toBe(original);
-  expect(run.response.feedback).toBe('Reviewed and ready.');
-  await navigate(page, 'Artifacts');
-  await page.locator('.artifact-card').first().click();
-  await expect(page.locator('.hash')).toHaveText(run.artifacts[0].sha256);
-  const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
-  const bytes = readFileSync((await (await download).path())!);
-  expect(createHash('sha256').update(bytes).digest('hex')).toBe(run.artifacts[0].sha256);
-  expect(bytes.byteLength).toBe(run.artifacts[0].size);
-  expect(bytes.toString()).toContain('Reviewed and ready.');
-  // Column geometry catches overlapping labels in the desktop layout.
-  for (const theme of ['dark', 'light'] as const) {
-    await page.getByRole('button', { name: 'Settings', exact: true }).click();
-    await page
-      .getByRole('radio', { name: theme === 'dark' ? 'Dark' : 'Light', exact: true })
-      .click();
-    for (const width of [1456, 1000]) {
-      await page.setViewportSize({ width, height: 767 });
-      await navigate(page, 'Runs');
-      const controls = await page.locator('.runs-toolbar').evaluate((toolbar) => {
-        const search = toolbar.querySelector('.search-field')!.getBoundingClientRect();
-        const filter = toolbar.querySelector('select')!.getBoundingClientRect();
-        return {
-          sameHeight: search.height === filter.height,
-          aligned: search.y === filter.y,
-          separated: search.right <= filter.left,
-        };
-      });
-      expect(controls).toEqual({ sameHeight: true, aligned: true, separated: true });
-      await page.getByRole('combobox', { name: 'Filter runs by status' }).selectOption('running');
-      await expect(page.getByRole('heading', { name: 'No matching runs' })).toBeVisible();
-      await page.getByRole('combobox', { name: 'Filter runs by status' }).selectOption('succeeded');
-      const geometry = await page.locator('.run-table').evaluate((table) => {
-        const bounds = table.getBoundingClientRect();
-        const header = Array.from(table.querySelector('.table-header')!.children).map((el) =>
-          el.getBoundingClientRect(),
-        );
-        const row = Array.from(table.querySelector('.run-table-row')!.children).map((el) =>
-          el.getBoundingClientRect(),
-        );
-        return {
-          aligned: row.every((cell, i) => Math.abs(cell.x - header[i].x) < 1),
-          separated: row.every((cell, i) => !i || row[i - 1].right <= cell.left),
-          fits: row.every((cell) => cell.right <= bounds.right),
-        };
-      });
-      expect(geometry).toEqual({ aligned: true, separated: true, fits: true });
-      await page.screenshot({
-        path: test.info().outputPath(`knotra-runs-${theme}-${width}.png`),
-      });
-    }
-    await page.locator('.run-table-row').first().click();
-    await expect(page.locator('.run-bottom')).toBeVisible();
-    const bottom = await page.locator('.run-bottom').boundingBox();
-    expect(bottom!.y + bottom!.height).toBeLessThanOrEqual(767);
-    await page.getByRole('button', { name: 'Snapshot', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Immutable run snapshot' })).toBeVisible();
-    await page.getByRole('button', { name: 'All runs', exact: true }).click();
-  }
 });
 
 for (const theme of ['dark', 'light'] as const)
@@ -385,6 +307,7 @@ test('build and configure blocks with named ports, drag connections and workflow
     .not.toEqual(originalPosition);
   const position = (await activeWorkspace(page)).positions['::human'];
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  await page.getByText('Advanced resource bindings', { exact: true }).click();
   await page.getByText('Models (2)', { exact: true }).click();
   await page.getByRole('textbox', { name: 'New model alias', exact: true }).fill('assistant');
   await page.getByRole('textbox', { name: 'Connection ID', exact: true }).fill('local_model');
@@ -400,16 +323,22 @@ test('build and configure blocks with named ports, drag connections and workflow
     .getByRole('button', { name: /^AI agent/ })
     .click();
   await expect(page.locator('.inspector h2')).toHaveText('agent');
+  await page
+    .locator('.setup-inspector summary')
+    .filter({ hasText: /^Model alias$/ })
+    .click();
   await page.getByRole('combobox', { name: /^Model alias/ }).selectOption('assistant');
   await page.getByRole('textbox', { name: /^Instructions/ }).fill('Summarize the supplied facts.');
   await page.getByRole('spinbutton', { name: /^Maximum model steps/ }).fill('7');
   const centers = await page.evaluate(() => {
     const dot = document.querySelector('.title-unsaved')!.getBoundingClientRect();
-    const title = document.querySelector('.workspace-title h1')!.getBoundingClientRect();
+    const status = document
+      .querySelector('.workspace-title [aria-live="polite"]')!
+      .getBoundingClientRect();
     const logo = document.querySelector('.brand img')!.getBoundingClientRect();
     const toggle = document.querySelector('.nav-toggle')!.getBoundingClientRect();
     return {
-      dot: Math.abs(dot.y + dot.height / 2 - title.y - title.height / 2),
+      dot: Math.abs(dot.y + dot.height / 2 - status.y - status.height / 2),
       toggle: Math.abs(logo.y + logo.height / 2 - toggle.y - toggle.height / 2),
     };
   });

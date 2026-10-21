@@ -130,6 +130,7 @@ export interface Activity {
   id: string;
   kind: 'model' | 'tool' | 'event';
   at: string;
+  instanceId?: string;
   attemptId?: string;
   step?: number;
   started?: EngineEvent;
@@ -157,12 +158,13 @@ export function activities(events: EngineEvent[]): Activity[] {
         at: event.at,
         events: [event],
         text: '',
+        instanceId: event.instanceId,
         attemptId: event.attemptId,
       });
       continue;
     }
     const step = typeof data.step === 'number' ? data.step : undefined;
-    const key = `${event.attemptId ?? ''}:${kind}:${data.callId ?? event.operationId ?? data.operationId ?? `${step ?? ''}:${data.name ?? ''}`}`;
+    const key = `${event.instanceId ?? ''}:${event.attemptId ?? ''}:${kind}:${data.callId ?? event.operationId ?? data.operationId ?? `${step ?? ''}:${data.name ?? ''}`}`;
     let row = calls.get(key);
     // Legacy events without operation IDs can still carry repeated calls in one attempt.
     if (!row || (event.type.endsWith('.started') && row.completed)) {
@@ -171,6 +173,7 @@ export function activities(events: EngineEvent[]): Activity[] {
         kind,
         at: event.at,
         step,
+        instanceId: event.instanceId,
         attemptId: event.attemptId,
         events: [],
         text: '',

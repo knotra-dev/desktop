@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-control-reply"
+description = "Enables the desktop_control_reply command without any pre-configured scope."
+commands.allow = ["desktop_control_reply"]
+
+[[permission]]
+identifier = "deny-desktop-control-reply"
+description = "Denies the desktop_control_reply command without any pre-configured scope."
+commands.deny = ["desktop_control_reply"]

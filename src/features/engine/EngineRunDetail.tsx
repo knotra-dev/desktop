@@ -21,6 +21,7 @@ import { EngineCompareView } from './EngineCompareView';
 import { Diagnostics } from './EngineDiagnostics';
 import EngineExecutionView from './EngineExecutionView';
 import { EngineReplayView } from './EngineReplayView';
+import { EngineTimeline } from './execution/EngineTimeline';
 
 export function EngineRunDetail({
   run: snapshot,
@@ -308,27 +309,7 @@ export function EngineRunDetail({
             label={t('execution.engineImmutableSnapshot')}
           />
         ) : tab === 'timeline' ? (
-          <>
-            <p className="small muted text-[11px] text-muted">{streamLabel}</p>
-            <div className="timeline overflow-auto min-h-0 px-5.25 py-4.5">
-              {events.map((event) => (
-                <div
-                  className="timeline-event flex items-start gap-3.25 relative px-0 py-2"
-                  key={event.id}
-                >
-                  <span className="timeline-marker w-1.25 h-1.25 mt-1.75 rounded-full bg-surface-highlight shrink-0" />
-                  <time>{time(event.at, locale)}</time>
-                  <div>
-                    <strong>{event.instanceId ?? event.type}</strong>
-                    <p>{event.message}</p>
-                    <small>
-                      {event.attemptId} {event.operationId}
-                    </small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <EngineTimeline run={run} events={events} connection={streamLabel} />
         ) : tab === 'instances' ? (
           <div className="engine-instance-list grid gap-3">
             {run.instances.map((instance) => (

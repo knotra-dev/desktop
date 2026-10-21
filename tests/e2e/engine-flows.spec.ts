@@ -8,8 +8,14 @@ import type {
   EnginePackage,
   EngineRequest,
   EngineRun,
+  Resource,
 } from '../../src/lib/engine/types';
-import { openActiveEditor } from './authoring';
+import {
+  activeWorkspace,
+  addResearchPipeline,
+  addStarterPipeline,
+  openActiveEditor,
+} from './authoring';
 
 let uploaded: { descriptor: EngineArtifact; bytes: Buffer } | undefined;
 let principal = 'test-user';
@@ -17,6 +23,7 @@ let server: Server;
 let address = '';
 let runs: EngineRun[] = [];
 let requests: EngineRequest[] = [];
+let resources: Resource[] = [];
 let writes: { path: string; key: string; body: Record<string, unknown> }[] = [];
 let accepted = new Map<string, unknown>();
 let streams: ServerResponse[] = [];
@@ -107,15 +114,7 @@ async function handle(request: IncomingMessage, response: ServerResponse) {
     });
   if (path === '/v1/resources')
     return json(response, {
-      items: [
-        {
-          id: 'm1',
-          kind: 'model',
-          title: 'Test model',
-          capabilities: ['structured'],
-          status: 'available',
-        },
-      ],
+      items: resources,
     });
   if (path === '/v1/runs/run-1/events') {
     response.writeHead(200, {
@@ -348,6 +347,15 @@ test.beforeEach(async ({ page }) => {
   principal = 'test-user';
   runs = [];
   requests = [];
+  resources = [
+    {
+      id: 'm1',
+      kind: 'model',
+      title: 'Test model',
+      capabilities: ['structured'],
+      status: 'available',
+    },
+  ];
   writes = [];
   accepted = new Map();
   streams = [];
@@ -383,22 +391,122 @@ async function nav(page: Page, name: string) {
     .click();
 }
 
-async function connect(page: Page) {
+async function connect(page: Page, endpoint = address) {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(address);
-  await page.getByRole('button', { name: 'Save address' }).click();
+  const input = page.getByRole('textbox', { name: 'Engine base URL', exact: true });
+  if (!(await input.isVisible())) await page.locator('[data-tour="engine"] summary').click();
+  await input.fill(endpoint);
   await page.getByRole('button', { name: 'Connect engine' }).click();
-  await expect(page.getByText('test-engine · knotra.desktop/1')).toBeVisible();
-  await expect(page.getByText('1 profiles · 1 resources')).toBeVisible();
+  const connection = page.locator('[data-tour="engine"]');
+  await expect(connection.getByText('test-engine', { exact: true })).toBeVisible();
+  await expect(connection).toContainText('knotra.desktop/1');
+  await expect(page.getByText(`1 profiles · ${resources.length} resources`)).toBeVisible();
 }
 
 async function start(page: Page, values = '{"topic":"Backend verification"}') {
   await nav(page, 'Pipelines');
-  await openActiveEditor(page);
+  if (await page.locator('.sidebar-pipelines > button').count()) await openActiveEditor(page);
+  else await addStarterPipeline(page, 'Hello, model');
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await page.getByRole('textbox', { name: 'Workflow input values' }).fill(values);
   await page.getByRole('button', { name: 'Start run', exact: true }).click();
 }
+
+test('workflow connections suggest available engine resources and keep manual IDs editable', async ({
+  page,
+}) => {
+  resources.push(
+    { ...resources[0] },
+    { ...resources[0], id: 'model_hidden', status: 'unavailable' },
+    {
+      id: 'search_ready',
+      kind: 'mcp',
+      title: 'Search server',
+      capabilities: [],
+      status: 'available',
+    },
+    {
+      id: 'sandbox_ready',
+      kind: 'sandbox',
+      title: 'Python sandbox',
+      capabilities: [],
+      status: 'available',
+    },
+    {
+      id: 'secret_hidden',
+      kind: 'secret',
+      title: 'API key',
+      capabilities: [],
+      status: 'available',
+    },
+  );
+  await connect(page);
+  await nav(page, 'Pipelines');
+  await addResearchPipeline(page);
+  await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  await page.locator('.workflow-resources > details > summary').click();
+
+  for (const [summary, alias, field, original, id, title] of [
+    ['Models', 'researcher', 'connection ID', 'model_main', 'm1', 'Test model'],
+    ['MCP servers', 'search', 'connection ID', 'search_remote', 'search_ready', 'Search server'],
+    ['Sandboxes', 'work', 'profile ID', 'python_box', 'sandbox_ready', 'Python sandbox'],
+  ]) {
+    const panel = page.locator('.workflow-resources > details > details').filter({
+      has: page.locator('summary').filter({ hasText: new RegExp(`^${summary} `) }),
+    });
+    await panel.locator('summary').click();
+    const connection = panel.getByRole('combobox', { name: `${alias} · ${field}`, exact: true });
+    await expect(connection).toHaveValue(original);
+    const options = panel.locator('datalist option');
+    await expect(options).toHaveCount(1);
+    await expect(options).toHaveAttribute('value', id);
+    await expect(options).toHaveAttribute('label', title);
+    await expect(connection).toHaveAttribute(
+      'list',
+      (await panel.locator('datalist').getAttribute('id'))!,
+    );
+    await connection.fill(id);
+    await connection.press('Tab');
+  }
+
+  const modelPanel = page.locator('.workflow-resources > details > details').filter({
+    has: page.locator('summary').filter({ hasText: /^Models / }),
+  });
+  await modelPanel.getByRole('textbox', { name: 'New model alias', exact: true }).fill('manual');
+  await modelPanel
+    .getByRole('combobox', { name: 'Connection ID', exact: true })
+    .fill('manual_model');
+  await modelPanel.getByRole('button', { name: 'Add alias', exact: true }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect
+    .poll(async () =>
+      parseDocument((await activeWorkspace(page)).source).getIn([
+        'spec',
+        'models',
+        'manual',
+        'connection',
+      ]),
+    )
+    .toBe('manual_model');
+  const source = parseDocument((await activeWorkspace(page)).source);
+  expect(source.getIn(['spec', 'models', 'researcher', 'connection'])).toBe('m1');
+  expect(source.toJS().spec.models.researcher.requires).toEqual(['toolCalling']);
+  expect(source.getIn(['spec', 'models', 'manual', 'connection'])).toBe('manual_model');
+  expect(source.getIn(['spec', 'mcp', 'search', 'connection'])).toBe('search_ready');
+  expect(source.getIn(['spec', 'sandboxes', 'work', 'profile'])).toBe('sandbox_ready');
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+  await nav(page, 'Pipelines');
+  await openActiveEditor(page);
+  await page.getByRole('button', { name: 'Workflow', exact: true }).click();
+  await page.locator('.workflow-resources > details > summary').click();
+  await page.getByText('Models (3)', { exact: true }).click();
+  await expect(
+    page.getByRole('textbox', { name: 'manual · connection ID', exact: true }),
+  ).toHaveValue('manual_model');
+  await expect(page.locator('.workflow-resources datalist option')).toHaveCount(0);
+});
 
 test('engine admission, immutable package, live events, request response and binary artifact export', async ({
   page,
@@ -407,6 +515,11 @@ test('engine admission, immutable package, live events, request response and bin
   page.on('pageerror', (error) => errors.push(error.message));
   await connect(page);
   await nav(page, 'Resources');
+  await page
+    .locator('details')
+    .filter({ has: page.locator('.engine-connections') })
+    .locator(':scope > summary')
+    .click();
   await expect(page.getByText('Test model', { exact: true })).toBeVisible();
   await start(page, '{"reject":true}');
   await expect(page.getByRole('dialog')).toContainText('INPUT_INVALID');
@@ -438,9 +551,10 @@ test('engine admission, immutable package, live events, request response and bin
   );
   await page.getByRole('button', { name: 'Review request', exact: true }).click();
   await expect(page.getByText('Confirm this actual saved request.')).toBeVisible();
+  await page.getByRole('button', { name: 'Advanced JSON', exact: true }).click();
   await page.getByRole('textbox', { name: 'Engine review response' }).fill('{}');
   await page.getByRole('button', { name: 'Submit response' }).click();
-  await expect(page.getByRole('alert')).toContainText('JSON schema');
+  await expect(page.getByRole('alert')).toContainText('Complete the required fields');
   expect(writes.filter((write) => write.path.includes('/response'))).toHaveLength(0);
   await page
     .getByRole('textbox', { name: 'Engine review response' })
@@ -525,6 +639,36 @@ test('cancellation, continuation and unknown-outcome resolution remain different
   await expect.poll(() => writes.at(-1)?.path).toBe('/v1/runs/run-1/resume');
 });
 
+test('the tour pauses for a nested resolution dialog and resumes after Escape', async ({
+  page,
+}) => {
+  await connect(page);
+  await start(page);
+  await expect(page.getByRole('heading', { name: 'Future engine workflow' })).toBeVisible();
+  runs[0].status = 'waiting_resolution';
+  runs[0].instances[0].status = 'waiting_resolution';
+  runs[0].availableActions = ['resolve'];
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.getByRole('button', { name: 'Restart tour', exact: true }).click();
+  await nav(page, 'Runs');
+  await page.locator('.run-table-row').first().click();
+  const tour = page.getByRole('region', { name: 'Knotra tour', exact: true });
+  await expect(tour).toContainText('8 of 8');
+
+  await page.getByRole('button', { name: 'Resolve unknown outcome', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Resolve unknown outcome' })).toBeVisible();
+  await expect(tour).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(tour).toBeVisible();
+  await expect(tour).toContainText('8 of 8');
+  await tour.getByRole('button', { name: 'Skip tour', exact: true }).click();
+  await expect(tour).toHaveCount(0);
+  expect(writes.map((write) => write.path)).toEqual(['/v1/definitions', '/v1/runs']);
+});
+
 test('corrupt artifact bytes cannot be previewed or exported', async ({ page }) => {
   await connect(page);
   await start(page);
@@ -552,6 +696,8 @@ test('remote transport must be authenticated HTTPS; tokens never reach workspace
 test('workspace backup restore replaces drafts only after review and leaves execution independent', async ({
   page,
 }) => {
+  await addStarterPipeline(page, 'Hello, model');
+  await addStarterPipeline(page, 'Research, verify and approve');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   const backupEvent = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export backup' }).click();
@@ -680,8 +826,8 @@ test('a command during the final refresh pass still receives a later authoritati
   await expect.poll(() => heldRuns.length).toBe(2);
   await nav(page, 'Inbox');
   await page
-    .getByRole('textbox', { name: 'Engine review response' })
-    .fill('{"feedback":"Completed during the final read"}');
+    .getByRole('textbox', { name: 'Feedback', exact: true })
+    .fill('Completed during the final read');
   await page.getByRole('button', { name: 'Submit response' }).click();
   await expect.poll(() => writes.at(-1)?.path).toBe('/v1/requests/request-1/response');
   await expect(page.getByRole('button', { name: 'Submit response' })).toBeEnabled();

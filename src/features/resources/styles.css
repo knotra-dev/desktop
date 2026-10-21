@@ -43,8 +43,14 @@
   color: var(--text-muted);
   margin-top: 6px;
 }
-.settings-card .field {
-  margin-bottom: 16px;
+.settings-card .field input {
+  font-size: inherit;
+}
+.settings-card .field :is(input, select) {
+  min-height: 44px;
+}
+.settings-card .field select {
+  height: 44px;
 }
 .settings-card .notice {
   display: flex;
@@ -71,28 +77,6 @@
   accent-color: var(--text-muted);
   width: 19px;
   height: 19px;
-}
-.about-card img {
-  width: 37px;
-  height: 37px;
-}
-.about-card h2 {
-  font-size: 19px;
-  letter-spacing: -0.7px;
-  color: var(--text-secondary);
-}
-.about-card p {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-.about-card .text-button {
-  margin-left: auto;
-  font-size: 11px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--text-muted);
 }
 .theme-option:hover {
   border-color: var(--border-focus);

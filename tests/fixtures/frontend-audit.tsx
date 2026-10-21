@@ -8,12 +8,18 @@ import WorkspaceView from '../../src/features/pipelines/WorkspaceView';
 import { connectEngine } from '../../src/lib/engine/client';
 import type { EngineRequest, EngineRun } from '../../src/lib/engine/types';
 import type { EngineController } from '../../src/lib/engine/useEngine';
+import { LocaleContext } from '../../src/lib/i18n';
 import type { Workspace } from '../../src/lib/types';
 import { validatePipeline } from '../../src/lib/validation';
 import foreachSource from '../../vendor/engine/contracts/v1/fixtures/positive/foreach/pipeline.yaml?raw';
 import '../../src/styles/index.css';
 
 const params = new URLSearchParams(location.search);
+const humanFields = params.has('fields');
+const locale = params.get('locale') === 'ru' ? 'ru' : 'en';
+document.documentElement.dataset.theme = params.get('theme') === 'light' ? 'light' : 'dark';
+const auditCommands: Parameters<EngineController['command']>[0][] = [];
+Object.assign(window, { auditCommands });
 const instanceId = (name: string) =>
   params.has('longIds') ? `n_${(name === 'first' ? 'a' : 'b').repeat(64)}` : `root/${name}`;
 const engine: EngineController = {
@@ -76,11 +82,22 @@ const engine: EngineController = {
       instanceId: instanceId(name),
       attemptId: 'attempt-1',
       status: 'open',
-      prompt: `Review ${name} request.`,
+      prompt: humanFields
+        ? locale === 'ru'
+          ? 'Прочитайте черновик и напишите ответ.'
+          : 'Read the draft and write your response.'
+        : `Review ${name} request.`,
       createdAt: '2026-10-01T00:00:00Z',
       deadline: '2030-01-01T00:00:00Z',
       inputs: {
-        values: {},
+        values: humanFields
+          ? {
+              draft:
+                locale === 'ru'
+                  ? 'Короткий черновик для проверки.'
+                  : 'A short draft for your review.',
+            }
+          : {},
         artifacts:
           name === 'first'
             ? {
@@ -93,13 +110,35 @@ const engine: EngineController = {
               }
             : {},
       },
-      responseSchema: { type: 'object' },
+      responseSchema: humanFields
+        ? params.get('fields') === 'unicode'
+          ? {
+              type: 'object',
+              required: ['constructor', 'answer'],
+              properties: {
+                constructor: { type: 'string', maxLength: 1 },
+                answer: { type: 'string', minLength: 2, maxLength: 2 },
+              },
+              additionalProperties: false,
+            }
+          : {
+              type: 'object',
+              required: ['answer', 'approved'],
+              properties: {
+                answer: { type: 'string', minLength: 1 },
+                approved: { type: 'boolean' },
+                feedback: { type: 'string' },
+              },
+              additionalProperties: false,
+            }
+        : { type: 'object' },
     }),
   ),
-  connect: async () => {},
+  connect: async () => undefined,
   disconnect: async () => {},
   refresh: async () => {},
   command: async <T,>(request: Parameters<EngineController['command']>[0]) => {
+    auditCommands.push(request);
     if (request.op === 'upload') throw new Error('Upload failed in fixture.');
     return { accepted: true } as T;
   },
@@ -151,12 +190,10 @@ function Fixture() {
           }
           onSave={() => {}}
           onExport={() => {}}
-          onRun={() => {}}
           onLibrary={() => {}}
           onAddNode={() => {}}
           onDelete={() => {}}
           onNotify={() => {}}
-          demo={false}
           engineConnected={false}
           onEngineRun={() => {}}
         />
@@ -185,4 +222,8 @@ if (
   new URLSearchParams(location.search).has('connected')
 )
   await connectEngine('http://127.0.0.1:19879');
-createRoot(document.getElementById('root')!).render(<Fixture />);
+createRoot(document.getElementById('root')!).render(
+  <LocaleContext.Provider value={locale}>
+    <Fixture />
+  </LocaleContext.Provider>,
+);

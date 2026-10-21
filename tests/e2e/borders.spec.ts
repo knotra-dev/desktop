@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { addStarterPipeline } from './authoring';
 
 for (const theme of ['dark', 'light'] as const) {
   test(`${theme} separators leave the other edges borderless`, async ({ page }) => {
@@ -20,6 +21,7 @@ for (const theme of ['dark', 'light'] as const) {
     }
 
     await page.goto('/');
+    await addStarterPipeline(page, 'Hello, model');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page
       .getByRole('radio', { name: theme === 'dark' ? 'Dark' : 'Light', exact: true })
@@ -35,6 +37,6 @@ for (const theme of ['dark', 'light'] as const) {
     await expectBorders('.pipeline-card-footer', [1, 0, 0, 0]);
     await expectBorders('.pipeline-card', [1, 1, 1, 1]);
     await navigation.getByRole('button', { name: 'Runs', exact: true }).click();
-    await expectBorders('.engine-mode-tabs', [0, 0, 1, 0]);
+    await expectBorders('.engine-banner', [0, 0, 1, 0]);
   });
 }

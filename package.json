@@ -14,6 +14,7 @@
     "format:check": "biome format .",
     "check": "biome check --error-on-warnings .",
     "tauri": "tauri",
+    "runtime:prepare": "python3 scripts/prepare-runtime.py",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
   },
@@ -51,5 +52,8 @@
     "vitest": "^3.2.4"
   },
   "license": "MIT",
-  "packageManager": "bun@1.3.10"
+  "packageManager": "bun@1.3.10",
+  "patchedDependencies": {
+    "@xyflow/react@12.12.0": "patches/@xyflow%2Freact@12.12.0.patch"
+  }
 }

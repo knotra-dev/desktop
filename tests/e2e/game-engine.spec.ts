@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import type { EngineArtifact, EngineEvent, EngineRun } from '../../src/lib/engine/types';
 import { record } from '../../src/lib/types';
+import { addStarterPipeline } from './authoring';
 
 const endpoint = process.env.KNOTRA_E2E_ENDPOINT?.replace(/\/$/, '');
 test.skip(
@@ -30,13 +31,9 @@ test('engine code-test loop builds an independently verified game that plays fro
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('textbox', { name: 'Engine base URL' }).fill(endpoint!);
-    await page.getByRole('button', { name: 'Save address' }).click();
     await page.getByRole('button', { name: 'Connect engine' }).click();
     await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
-    await page
-      .locator('.app-sidebar')
-      .getByRole('button', { name: 'Build a playable game', exact: true })
-      .click();
+    await addStarterPipeline(page, 'Build a playable game');
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.getByRole('combobox', { name: 'Engine profile' }).selectOption('local');
     await page.getByRole('button', { name: 'Check with engine' }).click();
@@ -94,7 +91,17 @@ test('engine code-test loop builds an independently verified game that plays fro
         checks[index - 1].outputs?.values.source_text,
       );
     }
-    expect(run.instances.every((instance) => instance.status === 'succeeded')).toBe(true);
+    expect(run.inputs.initial_source).toBe('');
+    expect(
+      run.instances
+        .filter((instance) => instance.nodeId === 'seed')
+        .map((instance) => instance.status),
+    ).toEqual(generations.map(() => 'skipped'));
+    expect(
+      run.instances
+        .filter((instance) => instance.nodeId !== 'seed')
+        .every((instance) => instance.status === 'succeeded'),
+    ).toBe(true);
     const artifacts = new Map(run.artifacts.map((artifact) => [artifact.name, artifact]));
     const finalSource = record(verifier.inputs?.artifacts.source);
     expect(finalSource.id).toEqual(expect.any(String));

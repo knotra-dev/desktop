@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import { parse, parseDocument } from 'yaml';
-import { activeWorkspace, addResearchDemo } from './authoring';
+import { activeWorkspace, addResearchPipeline, pipelineAction } from './authoring';
 
 test('uploading a missing declared file preserves its declaration and restores a valid package', async ({
   page,
 }) => {
   await page.goto('/');
-  await addResearchDemo(page);
+  await addResearchPipeline(page);
   const workspace = await activeWorkspace(page);
   const document = parseDocument(workspace.source);
   document.setIn(['spec', 'files'], [...(parse(workspace.source).spec.files ?? []), 'check.mjs']);
@@ -44,7 +44,7 @@ test('uploading a missing declared file preserves its declaration and restores a
   });
   await expect(page.getByRole('status')).toContainText('already exists');
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Export', exact: true }).click();
+  await pipelineAction(page, 'Export');
   const exported = unzipSync(new Uint8Array(readFileSync((await (await download).path())!)));
   expect(Buffer.from(exported['check.mjs']).toString()).toBe(content);
   expect(parse(Buffer.from(exported[workspace.entrypoint]).toString()).spec.files).toEqual(

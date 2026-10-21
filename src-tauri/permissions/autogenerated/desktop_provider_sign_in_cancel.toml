@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-desktop-provider-sign-in-cancel"
+description = "Enables the desktop_provider_sign_in_cancel command without any pre-configured scope."
+commands.allow = ["desktop_provider_sign_in_cancel"]
+
+[[permission]]
+identifier = "deny-desktop-provider-sign-in-cancel"
+description = "Denies the desktop_provider_sign_in_cancel command without any pre-configured scope."
+commands.deny = ["desktop_provider_sign_in_cancel"]

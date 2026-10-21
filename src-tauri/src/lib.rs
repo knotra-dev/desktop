@@ -1,5 +1,7 @@
 mod backend;
+mod control;
 mod package;
+mod setup;
 use backend::*;
 use package::{OpenedPackage, PackageFile};
 use tauri::Manager;
@@ -74,6 +76,10 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             app.manage(Backend::new(app)?);
+            let desktop_setup = setup::DesktopSetup::new(app.handle())?;
+            desktop_setup.restore();
+            app.manage(desktop_setup);
+            app.manage(control::DesktopControl::new(app.handle()));
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
@@ -84,6 +90,9 @@ pub fn run() {
             export_file,
             workspace_load,
             workspace_save,
+            control::desktop_control_status,
+            control::desktop_control_ready,
+            control::desktop_control_reply,
             engine_connect,
             engine_disconnect,
             engine_call,
@@ -91,8 +100,30 @@ pub fn run() {
             engine_download,
             engine_watch,
             engine_unwatch,
-            engine_events
+            engine_events,
+            setup::desktop_setup_status,
+            setup::desktop_provider_sign_in,
+            setup::desktop_provider_sign_in_cancel,
+            setup::desktop_provider_models,
+            setup::connections::desktop_connections_list,
+            setup::connections::desktop_connection_save,
+            setup::connections::desktop_connection_refresh,
+            setup::connections::desktop_connection_remove,
+            setup::mcp::desktop_mcp_connections_list,
+            setup::mcp::desktop_mcp_tools,
+            setup::mcp::desktop_mcp_connection_save,
+            setup::mcp::desktop_mcp_connection_refresh,
+            setup::mcp::desktop_mcp_connection_remove,
+            setup::desktop_engine_start,
+            setup::desktop_setup_cancel,
+            setup::desktop_open_dependency
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Knotra");
+        .build(tauri::generate_context!())
+        .expect("error while building Knotra")
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<setup::DesktopSetup>().shutdown();
+                app.state::<control::DesktopControl>().shutdown();
+            }
+        });
 }

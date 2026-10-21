@@ -4,6 +4,7 @@ import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
 import type { EngineArtifact, EngineEvent, EngineRun } from '../../src/lib/engine/types';
 import { record } from '../../src/lib/types';
+import { addStarterPipeline } from './authoring';
 
 const endpoint = process.env.KNOTRA_E2E_ENDPOINT?.replace(/\/$/, '');
 
@@ -32,7 +33,6 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint!);
-  await page.getByRole('button', { name: 'Save address' }).click();
   await page.getByRole('button', { name: 'Connect engine' }).click();
   await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
   await expect(page.getByText(/\d+ profiles · \d+ resources/)).toBeVisible();
@@ -58,11 +58,7 @@ test.afterEach(async ({ page }, testInfo) => {
 });
 
 async function startStarter(page: Page, starterTitle: string) {
-  await page
-    .locator('.app-sidebar')
-    .getByRole('button', { name: starterTitle, exact: true })
-    .click();
-  await expect(page.getByRole('heading', { name: starterTitle, exact: true })).toBeVisible();
+  await addStarterPipeline(page, starterTitle);
   const title = `${starterTitle} ${randomUUID().slice(0, 8)}`;
   await page.getByRole('button', { name: 'Workflow', exact: true }).click();
   await page.getByRole('textbox', { name: 'Workflow title', exact: true }).fill(title);

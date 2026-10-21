@@ -3,7 +3,7 @@ import { stringify } from 'yaml';
 import { base64, decodeText, textBytes } from '../src/lib/bytes';
 import { examples } from '../src/lib/examples';
 import { type DataSchema, type Pipeline, record } from '../src/lib/types';
-import { parsePipeline, validatePipeline } from '../src/lib/validation';
+import { parsePipeline, validatePipeline, validBinding } from '../src/lib/validation';
 
 function example(id: string) {
   const source = examples.find((example) => example.id === id)!;
@@ -16,6 +16,29 @@ function errors(pipeline: Pipeline, files = [] as { path: string; content: strin
     files,
   ).diagnostics.filter((diagnostic) => diagnostic.severity === 'error');
 }
+
+describe('binding field validation', () => {
+  it('accepts every selector and nested fallbacks', () => {
+    for (const binding of [
+      { value: { query: 'Knotra' } },
+      { from: 'args.payload', path: '/query' },
+      { expr: 'args' },
+      { coalesce: [{ from: 'args.payload' }, { value: {} }] },
+    ])
+      expect(validBinding(binding)).toBe(true);
+  });
+
+  it('rejects conflicting selectors, invalid paths and invalid nested bindings', () => {
+    for (const binding of [
+      { from: 'args.payload', value: {} },
+      { from: 'args.payload', path: 'query' },
+      { coalesce: [{ expr: '' }, { value: {} }] },
+      { path: '/query' },
+      {},
+    ])
+      expect(validBinding(binding)).toBe(false);
+  });
+});
 
 describe('typed package file references', () => {
   it('accepts file properties in JSON defaults and schema annotations as literal data', () => {

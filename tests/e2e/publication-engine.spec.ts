@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { type APIResponse, expect, type Page, test } from '@playwright/test';
 import type { EngineArtifact, EngineRequest, EngineRun } from '../../src/lib/engine/types';
+import { addStarterPipeline } from './authoring';
 
 const endpoint = process.env.KNOTRA_E2E_ENDPOINT?.replace(/\/$/, '');
 test.skip(
@@ -62,13 +63,9 @@ test('publication waits for approval, preserves editing feedback, and exports th
     await page.goto('/');
     await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint!);
-    await page.getByRole('button', { name: 'Save address' }).click();
     await page.getByRole('button', { name: 'Connect engine', exact: true }).click();
     await expect(page.getByText(/ · knotra.desktop\/1$/)).toBeVisible();
-    await page
-      .locator('.sidebar-pipelines > button')
-      .filter({ hasText: 'From brief to reviewed publication' })
-      .click();
+    await addStarterPipeline(page, 'From brief to reviewed publication');
     const title = `Publication acceptance ${randomUUID().slice(0, 8)}`;
     await page.getByRole('button', { name: 'Workflow', exact: true }).click();
     await page.getByRole('textbox', { name: 'Workflow title', exact: true }).fill(title);
@@ -133,20 +130,25 @@ test('publication waits for approval, preserves editing feedback, and exports th
     expect((await runSnapshot(page, runId!)).artifacts).toEqual([]);
 
     await navigate(page, 'Inbox');
-    await page.locator('.request-list > button').filter({ hasText: runId! }).click();
+    await page.locator('.request-list > button').filter({ hasText: title }).click();
     await expect(page.locator('.review-card .json-view').first()).toContainText('editorial_review');
     const feedback =
       'Use the exact heading "A clearer path to answers". End with the exact sentence "Tell us which guide helped you most." Preserve the verified launch facts and apply the editor corrections.';
-    const answer = JSON.stringify({ approved: true, feedback });
     expect(String(request.inputs.values.draft)).not.toContain(
       'Tell us which guide helped you most.',
     );
-    await page.getByRole('textbox', { name: 'Engine review response' }).fill(answer);
+    await page
+      .getByRole('combobox', { name: 'Approval', exact: true })
+      .selectOption({ label: 'Yes' });
+    await page.getByRole('textbox', { name: 'Feedback', exact: true }).fill(feedback);
     await navigate(page, 'Pipelines');
     await expect(page.locator('.pipelines-page')).toBeVisible();
     await navigate(page, 'Inbox');
-    await page.locator('.request-list > button').filter({ hasText: runId! }).click();
-    await expect(page.getByRole('textbox', { name: 'Engine review response' })).toHaveValue(answer);
+    await page.locator('.request-list > button').filter({ hasText: title }).click();
+    await expect(page.getByRole('combobox', { name: 'Approval', exact: true })).toHaveValue('0');
+    await expect(page.getByRole('textbox', { name: 'Feedback', exact: true })).toHaveValue(
+      feedback,
+    );
     await page.screenshot({
       path: testInfo.outputPath('publication-independent-review.png'),
       fullPage: true,

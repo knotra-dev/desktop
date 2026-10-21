@@ -125,7 +125,7 @@ export interface Example {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
   kindKey: MessageKey;
-  category: 'starter' | 'block' | 'demo';
+  category: 'starter' | 'block';
   requirements: ('model' | 'sandbox' | 'nodeSandbox' | 'mcp' | 'secret')[];
   resultKey?: MessageKey;
   entrypoint?: string;
@@ -228,9 +228,9 @@ export const examples: Example[] = [
   {
     id: 'research',
     titleKey: 'shell.researchBrief',
-    descriptionKey: 'shell.exploreTheCompleteWorkbenchWithAGuidedDemo',
-    kindKey: 'shell.5NodesDemoAvailable',
-    category: 'demo',
+    descriptionKey: 'library.research.description',
+    kindKey: 'library.research.kind',
+    category: 'block',
     requirements: ['model', 'sandbox', 'mcp'],
     source: RESEARCH_SOURCE,
     files: [],
@@ -286,8 +286,7 @@ export const examples: Example[] = [
 
 export function fromExample(example: Example, locale: Locale = 'en'): Workspace {
   let source = example.source;
-  // The guided demo relies on its exact canonical source. New starter names
-  // become ordinary authoring content once created and are never retranslated.
+  // New starter names become authoring content and are never retranslated.
   if (example.category === 'starter') {
     const document = parseDocument(source);
     document.setIn(['metadata', 'title'], translate(example.titleKey, locale));
@@ -302,10 +301,4 @@ export function fromExample(example: Example, locale: Locale = 'en'): Workspace 
     files: example.files.map((file) => ({ ...file })),
     updatedAt: new Date().toISOString(),
   };
-}
-
-export function initialWorkspaces(locale: Locale = 'en'): Workspace[] {
-  return examples
-    .filter((example) => example.category === 'starter')
-    .map((example) => fromExample(example, locale));
 }

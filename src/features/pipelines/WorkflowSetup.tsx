@@ -1,7 +1,8 @@
 import { Plus, Settings2, Trash2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { sources } from '../../lib/connections';
 import { editorDataTypeLabel } from '../../lib/editorLabels';
+import type { Resource } from '../../lib/engine/types';
 import { useI18n } from '../../lib/i18n';
 import type { Graph, Pipeline, Port } from '../../lib/types';
 import { BindingEditor, JsonField, portDataType, seedValue } from './PortEditor';
@@ -15,8 +16,10 @@ export default function WorkflowSetup({
   onMetadata,
   onResources,
   showResources,
+  engineResources,
 }: {
-  showResources?: boolean;
+  showResources?: 'models' | 'mcp' | 'sandboxes';
+  engineResources: Resource[];
   pipeline: Pipeline;
   graph: Graph;
   imports: Map<string, Graph>;
@@ -44,7 +47,7 @@ export default function WorkflowSetup({
   return (
     <aside className="inspector setup-inspector w-85 shrink-0 overflow-hidden border-l border-solid border-l-line bg-surface flex flex-col">
       <header className="inspector-header flex items-center justify-between pt-4 pb-2 px-4.5">
-        <span className="eyebrow text-[9px] tracking-[1.3px] text-muted font-medium">
+        <span className="text-[12px] text-secondary font-medium">
           {t(scope.length ? 'editor.bodyGraph' : 'editor.workflowSettings')}
         </span>
         <Settings2 size={16} />
@@ -291,15 +294,24 @@ export default function WorkflowSetup({
             <p className="setup-hint text-[11px] leading-[1.6] text-muted mt-0 mb-3.5 mx-0">
               {t('editor.aliasesUsedByBlocksConnectionAndProfileIds')}
             </p>
-            {(['models', 'mcp', 'sandboxes'] as const).map((kind) => (
-              <ResourceList
-                initiallyOpen={showResources}
-                key={kind}
-                kind={kind}
-                resources={pipeline.spec[kind] ?? {}}
-                onSave={(value) => onResources(kind, value)}
-              />
-            ))}
+            <details open={!!showResources}>
+              <summary className="cursor-pointer text-[12px] text-secondary">
+                {t('resources.advancedBindings')}
+              </summary>
+              <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                {t('resources.aliasExplanation')}
+              </p>
+              {(['models', 'mcp', 'sandboxes'] as const).map((kind) => (
+                <ResourceList
+                  initiallyOpen={showResources === kind}
+                  key={kind}
+                  kind={kind}
+                  resources={pipeline.spec[kind] ?? {}}
+                  engineResources={engineResources}
+                  onSave={(value) => onResources(kind, value)}
+                />
+              ))}
+            </details>
           </section>
         ) : null}
         {error ? (
@@ -320,20 +332,36 @@ function ResourceList({
   resources,
   onSave,
   initiallyOpen,
+  engineResources,
 }: {
   initiallyOpen?: boolean;
   kind: 'models' | 'mcp' | 'sandboxes';
   resources: Record<string, Record<string, unknown>>;
+  engineResources: Resource[];
   onSave: (value: Record<string, Record<string, unknown>>) => void;
 }) {
   const { t, message } = useI18n();
   const [expanded, setExpanded] = useState(!!initiallyOpen);
+  useEffect(() => {
+    if (initiallyOpen) setExpanded(true);
+  }, [initiallyOpen]);
   const [alias, setAlias] = useState('');
   const [connection, setConnection] = useState('');
   const [error, setError] = useState('');
   const field = kind === 'sandboxes' ? 'profile' : 'connection';
+  const resourceKind = kind === 'models' ? 'model' : kind === 'sandboxes' ? 'sandbox' : 'mcp';
+  const available = Array.from(
+    new Map(
+      engineResources
+        .filter((resource) => resource.kind === resourceKind && resource.status === 'available')
+        .map((resource) => [resource.id, resource]),
+    ).values(),
+  );
+  const suggestionsId = useId();
+  const suggestions = available.length ? suggestionsId : undefined;
   return (
     <details
+      data-tour={kind === 'models' ? 'workflow-models' : undefined}
       className="field-details border-t border-solid border-t-line pt-3 mx-0 my-4"
       open={expanded}
       onToggle={(event) => setExpanded(event.currentTarget.open)}
@@ -349,21 +377,25 @@ function ResourceList({
         ({Object.keys(resources).length})
       </summary>
       {Object.entries(resources).map(([name, resource]) => (
-        <label
-          className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6"
-          key={name}
-        >
-          {name} · {t(field === 'profile' ? 'editor.profileId' : 'editor.connectionId')}
-          <input
-            aria-label={`${name} · ${t(field === 'profile' ? 'editor.profileId' : 'editor.connectionId')}`}
-            defaultValue={String(resource[field])}
-            key={String(resource[field])}
-            onBlur={(event) => {
-              if (event.target.value.trim())
-                onSave({ ...resources, [name]: { ...resource, [field]: event.target.value } });
-            }}
-          />
-        </label>
+        <div key={name}>
+          <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+            {name} · {t(field === 'profile' ? 'editor.profileId' : 'editor.connectionId')}
+            <input
+              aria-label={`${name} · ${t(field === 'profile' ? 'editor.profileId' : 'editor.connectionId')}`}
+              list={suggestions}
+              defaultValue={String(resource[field])}
+              key={String(resource[field])}
+              onBlur={(event) => {
+                const connection = event.target.value.trim();
+                if (connection && connection !== resource[field]) {
+                  const next = { ...resource, [field]: connection };
+                  if (kind === 'models') delete next.model;
+                  onSave({ ...resources, [name]: next });
+                }
+              }}
+            />
+          </label>
+        </div>
       ))}
       <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
         {t(
@@ -382,11 +414,17 @@ function ResourceList({
       <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
         {t(field === 'profile' ? 'editor.profileId2' : 'editor.connectionId2')}
         <input
+          list={suggestions}
           value={connection}
           onChange={(event) => setConnection(event.target.value)}
           placeholder={t('editor.idInTheTrustedEngineProfile')}
         />
       </label>
+      <datalist id={suggestionsId}>
+        {available.map((resource) => (
+          <option key={resource.id} value={resource.id} label={resource.title} />
+        ))}
+      </datalist>
       <button
         type="button"
         className="button small-button text-[11px] min-h-8 px-3 py-1.75"

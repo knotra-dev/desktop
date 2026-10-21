@@ -1,8 +1,7 @@
 import { type Dispatch, type SetStateAction, useEffect, useRef } from 'react';
-import { advanceDemo, finishDemo } from '../lib/demo';
 import { desktop } from '../lib/native';
 import { type State, saveState } from '../lib/storage';
-import type { DemoRun, Section } from '../lib/types';
+import type { Section } from '../lib/types';
 import type { WorkspaceDialog } from './WorkspaceDialogs';
 
 export function useWorkspacePersistence(state: State, notify: (message: string) => void) {
@@ -50,47 +49,6 @@ export function useWorkspacePersistence(state: State, notify: (message: string) 
     };
   }, [notify]);
   return stateRef;
-}
-
-export function useDemoProgress(
-  runs: DemoRun[],
-  setState: Dispatch<SetStateAction<State>>,
-  notify: (message: string) => void,
-) {
-  useEffect(() => {
-    const timers = runs
-      .filter((r) => r.status === 'running')
-      .map((run) =>
-        setTimeout(async () => {
-          if (run.nodes.publish === 'running') {
-            try {
-              const finished = await finishDemo(run);
-              setState((s) => ({
-                ...s,
-                runs: s.runs.map((current) =>
-                  current.id === run.id &&
-                  current.status === 'running' &&
-                  current.updatedAt === run.updatedAt
-                    ? finished
-                    : current,
-                ),
-              }));
-            } catch (e) {
-              notify(String(e));
-            }
-          } else
-            setState((s) => ({
-              ...s,
-              runs: s.runs.map((current) =>
-                current.id === run.id && current.status === 'running'
-                  ? advanceDemo(current)
-                  : current,
-              ),
-            }));
-        }, 1300),
-      );
-    return () => timers.forEach(clearTimeout);
-  }, [runs, notify, setState]);
 }
 
 export function useWorkspaceShortcuts(

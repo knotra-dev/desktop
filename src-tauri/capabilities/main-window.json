@@ -13,11 +13,17 @@
       "allow": [
         {
           "url": "https://github.com/knotra-dev/desktop"
+        },
+        {
+          "url": "https://knotra-dev.github.io/docs/en/docs/guides/connect-models/"
         }
       ]
     },
     "allow-workspace-load",
     "allow-workspace-save",
+    "allow-desktop-control-status",
+    "allow-desktop-control-ready",
+    "allow-desktop-control-reply",
     "allow-engine-connect",
     "allow-engine-disconnect",
     "allow-engine-call",
@@ -26,6 +32,22 @@
     "allow-engine-watch",
     "allow-engine-unwatch",
     "allow-engine-events",
+    "allow-desktop-setup-status",
+    "allow-desktop-provider-sign-in",
+    "allow-desktop-provider-sign-in-cancel",
+    "allow-desktop-provider-models",
+    "allow-desktop-connections-list",
+    "allow-desktop-connection-save",
+    "allow-desktop-connection-refresh",
+    "allow-desktop-connection-remove",
+    "allow-desktop-mcp-connections-list",
+    "allow-desktop-mcp-tools",
+    "allow-desktop-mcp-connection-save",
+    "allow-desktop-mcp-connection-refresh",
+    "allow-desktop-mcp-connection-remove",
+    "allow-desktop-engine-start",
+    "allow-desktop-setup-cancel",
+    "allow-desktop-open-dependency",
     "core:window:allow-destroy"
   ]
 }

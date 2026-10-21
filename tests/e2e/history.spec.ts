@@ -232,9 +232,10 @@ test.afterEach(async () => {
 async function openRun(page: Page) {
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint);
-  await page.getByRole('button', { name: 'Save address' }).click();
   await page.getByRole('button', { name: 'Connect engine' }).click();
-  await expect(page.getByText('history-engine · knotra.desktop/1')).toBeVisible();
+  const connection = page.locator('[data-tour="engine"]');
+  await expect(connection.getByText('history-engine', { exact: true })).toBeVisible();
+  await expect(connection).toContainText('knotra.desktop/1');
   await page
     .getByRole('navigation', { name: 'Main navigation' })
     .getByRole('button', { name: 'Runs', exact: true })
@@ -360,9 +361,10 @@ test('loads baseline instance pages explicitly and ignores a stale selection res
   });
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('textbox', { name: 'Engine base URL', exact: true }).fill(endpoint);
-  await page.getByRole('button', { name: 'Save address' }).click();
   await page.getByRole('button', { name: 'Connect engine' }).click();
-  await expect(page.getByText('history-engine · knotra.desktop/1')).toBeVisible();
+  const connection = page.locator('[data-tour="engine"]');
+  await expect(connection.getByText('history-engine', { exact: true })).toBeVisible();
+  await expect(connection).toContainText('knotra.desktop/1');
   await page
     .getByRole('navigation', { name: 'Main navigation' })
     .getByRole('button', { name: 'Runs', exact: true })

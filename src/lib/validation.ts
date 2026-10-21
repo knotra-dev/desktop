@@ -14,6 +14,15 @@ import {
 } from './types';
 
 const structural = new Validator(structuredClone(contract) as Schema, '2020-12', false);
+const bindingValidator = new Validator(
+  { $ref: '#/$defs/Binding', $defs: contract.$defs } as Schema,
+  '2020-12',
+  false,
+);
+
+export function validBinding(value: unknown): boolean {
+  return bindingValidator.validate(value).valid;
+}
 
 function dataValidator(schema: unknown): Validator {
   return new Validator(structuredClone(schema) as Schema | boolean, '2020-12', false);

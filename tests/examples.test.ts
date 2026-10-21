@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodeText } from '../src/lib/bytes';
 import { enginePackage } from '../src/lib/engine/package';
-import { examples, fromExample, initialWorkspaces, RESEARCH_SOURCE } from '../src/lib/examples';
+import { examples, fromExample, RESEARCH_SOURCE } from '../src/lib/examples';
 import { graphOrder } from '../src/lib/graph';
 import { translate } from '../src/lib/i18n';
 import { parsePipeline, validateResponse } from '../src/lib/validation';
@@ -10,13 +10,13 @@ const starterIDs = ['hello', 'research-dossier', 'reviewed-research', 'tic-tac-t
 const example = (id: string) => examples.find((candidate) => candidate.id === id)!;
 
 describe('runnable starter packages', () => {
-  it('seeds five scenarios while keeping the demo and technical blocks in the library', () => {
+  it('offers runnable scenarios and technical blocks in the optional library', () => {
     expect(examples.filter((item) => item.category === 'starter').map((item) => item.id)).toEqual(
       starterIDs,
     );
-    const initial = initialWorkspaces();
-    expect(initial).toHaveLength(5);
-    expect(initial.map((workspace) => parsePipeline(workspace.source)!.metadata.name)).toEqual([
+    expect(
+      starterIDs.map((id) => parsePipeline(fromExample(example(id)).source)!.metadata.name),
+    ).toEqual([
       'hello-world',
       'research-dossier',
       'reviewed-research',
@@ -42,7 +42,7 @@ describe('runnable starter packages', () => {
       'artifact-mount',
     ])
       expect(example(id).category).toBe('block');
-    expect(example('research').category).toBe('demo');
+    expect(example('research').category).toBe('block');
     expect(fromExample(example('research'), 'ru').source).toBe(RESEARCH_SOURCE);
   });
 
@@ -62,7 +62,7 @@ describe('runnable starter packages', () => {
       }
       expect(parsePipeline(template.source)).toEqual(original);
     }
-    expect(parsePipeline(initialWorkspaces('ru')[0].source)!.metadata.title).toBe(
+    expect(parsePipeline(fromExample(example('hello'), 'ru').source)!.metadata.title).toBe(
       translate('starter.hello.title', 'ru'),
     );
   });

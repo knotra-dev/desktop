@@ -1,14 +1,4 @@
-import {
-  ArrowRight,
-  ChevronRight,
-  FolderOpen,
-  Plus,
-  Search,
-  Settings2,
-  Sparkles,
-  Upload,
-  Workflow,
-} from 'lucide-react';
+import { ArrowRight, FolderOpen, Plus, Search, Settings2, Upload, Workflow } from 'lucide-react';
 import type { RefObject } from 'react';
 import { stringify } from 'yaml';
 import { Modal, NodeIcon, nodeMeta } from '../components/ui';
@@ -23,7 +13,6 @@ import { navigation } from './WorkspaceShell';
 
 export type WorkspaceDialog =
   | 'library'
-  | 'run'
   | 'node'
   | 'search'
   | 'delete'
@@ -131,65 +120,6 @@ export function NodeDialog({ onClose, onAdd }: DialogProps & { onAdd: (kind: Nod
             <Plus size={16} />
           </button>
         ))}
-      </div>
-    </Modal>
-  );
-}
-
-export function DemoRunDialog({
-  onClose,
-  topic,
-  onTopic,
-  onStart,
-}: DialogProps & { topic: string; onTopic: (topic: string) => void; onStart: () => void }) {
-  const { t } = useI18n();
-  return (
-    <Modal
-      title={t('shell.runYourWorkflow')}
-      subtitle={t('shell.aGuidedResearchBriefDemoWithSampleOutputs')}
-      onClose={onClose}
-    >
-      <div className="modal-body px-7.75 py-6.75">
-        <div className="notice flex items-start gap-3 border border-solid border-line-strong rounded-[16px] bg-[rgb(var(--accent-rgb)_/_0.027)] text-accent mb-6.25 px-5 py-4.5">
-          <Sparkles size={19} />
-          <p>{t('shell.thisDemoSimulatesFiveStepsPausesForYour')}</p>
-        </div>
-        <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-          {t('shell.researchTopic')}
-          <input
-            // biome-ignore lint/a11y/noAutofocus: Focus the topic in this user-opened dialog.
-            autoFocus
-            aria-label={t('shell.researchTopic')}
-            value={topic}
-            onChange={(e) => onTopic(e.target.value)}
-            placeholder={t('shell.whatWouldYouLikeToExplore')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && topic.trim()) onStart();
-            }}
-          />
-        </label>
-        <div className="run-steps flex justify-between mt-7.5 gap-2">
-          {[
-            'shell.discover',
-            'shell.research',
-            'editor.draft',
-            'shell.review',
-            'shell.publish',
-          ].map((name, i) => (
-            <span key={name}>
-              <em>{i + 1}</em>
-              {t(name)}
-              {i < 4 ? <ChevronRight size={12} /> : null}
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="modal-footer flex items-center justify-between gap-4 bg-surface border-t border-solid border-t-line px-7.75 py-5">
-        <span>{t('shell.eachRunPreservesItsOwnSourceSnapshot')}</span>
-        <button type="button" className="button primary" onClick={onStart} disabled={!topic.trim()}>
-          <ArrowRight size={15} />
-          {t('shell.startDemo')}
-        </button>
       </div>
     </Modal>
   );

@@ -2,13 +2,17 @@ import { RefreshCw } from 'lucide-react';
 import type { EngineController } from '../../lib/engine/useEngine';
 import { executionCommandLabels } from '../../lib/executionLabels';
 import { useI18n } from '../../lib/i18n';
+import { desktop } from '../../lib/native';
+import type { SetupStatus } from '../../lib/setup';
 
 export function EngineBanner({
   engine,
   onSettings,
+  runtimeStatus,
 }: {
   engine: EngineController;
   onSettings: () => void;
+  runtimeStatus?: SetupStatus;
 }) {
   const { t } = useI18n();
   return (
@@ -17,16 +21,30 @@ export function EngineBanner({
         className={`dot inline-block w-1.5 h-1.5 bg-surface-raised rounded-full shrink-0 ${engine.info ? 'green' : 'amber'}`}
       />
       <span>
-        {engine.info
-          ? t('execution.engineVersionStatus', {
-              version: engine.info.version,
-              status: engine.error
-                ? t('execution.unavailableCachedData')
-                : engine.syncing
-                  ? t('execution.syncing')
-                  : t('resources.connected'),
-            })
-          : t('execution.connectAnEngineToExecuteYourWorkflows')}
+        {runtimeStatus?.phase === 'starting'
+          ? t('engineSetup.starting')
+          : runtimeStatus?.sourcesState && runtimeStatus.sourcesState !== 'current'
+            ? t(
+                runtimeStatus.sourcesState === 'pending'
+                  ? 'engineSetup.sourcesPending'
+                  : runtimeStatus.sourcesState === 'applying'
+                    ? 'engineSetup.sourcesApplying'
+                    : 'engineSetup.sourcesFailed',
+              )
+            : engine.info
+              ? t('execution.engineVersionStatus', {
+                  version: engine.info.version,
+                  status: engine.error
+                    ? t('execution.unavailableCachedData')
+                    : engine.syncing
+                      ? t('execution.syncing')
+                      : t('resources.connected'),
+                })
+              : t(
+                  desktop
+                    ? 'modelSetup.connectHint'
+                    : 'execution.connectAnEngineToExecuteYourWorkflows',
+                )}
       </span>
       <button
         type="button"
@@ -39,7 +57,7 @@ export function EngineBanner({
             {t('common.refresh')}
           </>
         ) : (
-          t('execution.connectInSettings')
+          t(desktop ? 'engineSetup.title' : 'execution.connectInSettings')
         )}
       </button>
       {engine.error ? (

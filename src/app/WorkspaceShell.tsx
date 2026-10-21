@@ -94,6 +94,7 @@ export function WorkspaceSidebar({
           <button
             type="button"
             key={id}
+            data-tour={`nav-${id}`}
             aria-label={t(title)}
             aria-current={section === id ? 'page' : undefined}
             className={section === id ? 'active' : ''}

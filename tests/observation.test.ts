@@ -135,6 +135,19 @@ describe('runtime graph identity', () => {
 });
 
 describe('durable observation trajectories', () => {
+  it('does not combine calls from different instances when operation and attempt IDs match', () => {
+    const rows = activities([
+      { ...event('1', 'model.started', {}), instanceId: 'first' },
+      { ...event('2', 'model.started', {}), instanceId: 'second' },
+      { ...event('3', 'model.delta', { text: 'one' }), instanceId: 'first' },
+      { ...event('4', 'model.completed', { content: 'two' }), instanceId: 'second' },
+    ]);
+    expect(rows.map((row) => [row.instanceId, row.text, row.completed?.id])).toEqual([
+      ['first', 'one', undefined],
+      ['second', 'two', '4'],
+    ]);
+  });
+
   it('orders decimal durable IDs without precision loss and deduplicates cache, stream and history', () => {
     const earlier = event('9007199254740992', 'model.started', {});
     const later = event('9007199254740993', 'model.completed', {});

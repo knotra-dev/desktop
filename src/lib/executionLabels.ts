@@ -25,14 +25,6 @@ export const executionStatusLabels: Record<string, MessageKey> = {
   cancelled: 'execution.cancelled2',
 };
 
-export const demoStatusLabels: Record<string, MessageKey> = {
-  all: 'execution.allStatuses',
-  running: 'execution.running',
-  waiting_human: 'execution.needsReview',
-  succeeded: 'execution.completed',
-  cancelled: 'execution.cancelled',
-};
-
 export const executionActionLabels: Record<string, MessageKey> = {
   cancel: 'execution.requestCancellation',
   resume: 'execution.resumeSavedAttempt',

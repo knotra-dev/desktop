@@ -117,7 +117,8 @@ export function BindingEditor({
   const current =
     binding.from ?? (binding.expr ? '$expression' : binding.coalesce ? '$advanced' : '$value');
   const options = sources(graph, imports);
-  const custom = binding.from && !options.some((option) => option.value === binding.from);
+  const source = options.find((option) => option.value === binding.from);
+  const custom = binding.from && !source;
   return (
     <div className="binding-editor block w-full min-w-0">
       <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
@@ -134,13 +135,7 @@ export function BindingEditor({
           }}
         >
           {!port.artifact ? (
-            <>
-              <option value="$value">{t('editor.useAValueNoConnection')}</option>
-              <option value="$expression">{t('editor.calculateWithCel')}</option>
-            </>
-          ) : null}
-          {binding.coalesce ? (
-            <option value="$advanced">{t('editor.fallbackSourcesCoalesce')}</option>
+            <option value="$value">{t('editor.useAValueNoConnection')}</option>
           ) : null}
           {custom ? <option value={binding.from}>{binding.from}</option> : null}
           {options.map((option) => {
@@ -171,6 +166,16 @@ export function BindingEditor({
               </option>
             );
           })}
+          {!port.artifact || binding.coalesce ? (
+            <optgroup label={t('editor.advancedDataMapping')}>
+              {!port.artifact ? (
+                <option value="$expression">{t('editor.calculateWithCel')}</option>
+              ) : null}
+              {binding.coalesce ? (
+                <option value="$advanced">{t('editor.fallbackSourcesCoalesce')}</option>
+              ) : null}
+            </optgroup>
+          ) : null}
         </select>
       </label>
       {binding.from ? (
@@ -182,7 +187,12 @@ export function BindingEditor({
                 ? 'editor.workflowInput'
                 : 'editor.connectedOutput',
             )}
-            : <code>{binding.from}</code>
+            :{' '}
+            {source?.node
+              ? source.label
+              : source
+                ? t('editor.workflowInputName', { name: source.name })
+                : binding.from}
           </span>
         </div>
       ) : (
@@ -206,12 +216,14 @@ export function BindingEditor({
             <textarea
               aria-label={t('editor.valueForName', { name })}
               rows={2}
+              placeholder={t('editor.fixedValueHint')}
               defaultValue={binding.value}
               key={String(binding.value)}
               onBlur={(event) => {
                 if (event.target.value !== binding.value) onChange({ value: event.target.value });
               }}
             />
+            <small>{t('editor.fixedValueHint')}</small>
           </label>
         ) : (
           <JsonField
@@ -222,31 +234,39 @@ export function BindingEditor({
           />
         )
       ) : null}
-      {binding.expr ? (
-        <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-          {t('editor.expressionForName', { name })}
-          <textarea
-            aria-label={t('editor.expressionForName', { name })}
-            className="code-input [font-family:ui-monospace,_monospace]"
-            rows={2}
-            defaultValue={binding.expr}
-            key={binding.expr}
-            onBlur={(event) => {
-              if (event.target.value.trim() && event.target.value !== binding.expr)
-                onChange({ expr: event.target.value });
-            }}
-          />
-          <small>{t('editor.useInputsAndNodesInThisGraphThe')}</small>
-        </label>
-      ) : null}
-      {binding.coalesce ? (
-        <JsonField<Binding[]>
-          label={t('editor.fallbackBindingsForName', { name })}
-          value={binding.coalesce}
-          validate={(value) => Array.isArray(value) && value.length >= 2}
-          onSave={(coalesce) => onChange({ coalesce })}
-          hint={t('editor.anOrderedArrayOfAtLeastTwoBindings')}
-        />
+      {binding.expr || binding.coalesce ? (
+        <details className="field-details border-t border-solid border-t-line pt-3 mx-0 my-4" open>
+          <summary>{t('editor.advancedDataMapping')}</summary>
+          <p className="text-[11px] leading-relaxed text-muted mb-3">
+            {t('editor.advancedDataMappingHint')}
+          </p>
+          {binding.expr ? (
+            <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+              {t('editor.expressionForName', { name })}
+              <textarea
+                aria-label={t('editor.expressionForName', { name })}
+                className="code-input [font-family:ui-monospace,_monospace]"
+                rows={2}
+                defaultValue={binding.expr}
+                key={binding.expr}
+                onBlur={(event) => {
+                  if (event.target.value.trim() && event.target.value !== binding.expr)
+                    onChange({ expr: event.target.value });
+                }}
+              />
+              <small>{t('editor.useInputsAndNodesInThisGraphThe')}</small>
+            </label>
+          ) : null}
+          {binding.coalesce ? (
+            <JsonField<Binding[]>
+              label={t('editor.fallbackBindingsForName', { name })}
+              value={binding.coalesce}
+              validate={(value) => Array.isArray(value) && value.length >= 2}
+              onSave={(coalesce) => onChange({ coalesce })}
+              hint={t('editor.anOrderedArrayOfAtLeastTwoBindings')}
+            />
+          ) : null}
+        </details>
       ) : null}
       {binding.from && !port.artifact ? (
         <details className="field-details border-t border-solid border-t-line pt-3 mx-0 my-4">
@@ -396,62 +416,10 @@ export default function PortEditor({
               ) : null}
             </span>
           </div>
-          {editable ? (
-            <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-              {t('editor.typeOfName', { name })}
-              <select
-                value={portDataType(port)}
-                onChange={(event) => {
-                  const next = dataType(port, event.target.value);
-                  if (direction === 'inputs') {
-                    if (next.artifact && !port.artifact) {
-                      setError('Add a file input using Add input so its source can be selected.');
-                      return;
-                    }
-                    if (!next.artifact && port.artifact) next.bind = { value: seedValue(next) };
-                  }
-                  onChange({ ...ports, [name]: next });
-                }}
-              >
-                <option value="JSON">{t('editor.anyJson')}</option>
-                {portDataType(port) === '$custom' ? (
-                  <option value="$custom">
-                    {t('editor.customSchema')} · {editorPortTypeLabel(port, t)}
-                  </option>
-                ) : null}
-                {['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'].map(
-                  (type) => (
-                    <option key={type} value={type}>
-                      {editorDataTypeLabel(type, t)}
-                    </option>
-                  ),
-                )}
-                {allowFiles ? <option value="file">{t('editor.file')}</option> : null}
-                {schemas.length || port.schemaRef ? (
-                  <option value="reference">{t('editor.schemaAlias')}</option>
-                ) : null}
-              </select>
-            </label>
-          ) : null}
-          {port.schemaRef && editable ? (
-            <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-              {t('editor.schemaAlias')}
-              <select
-                value={port.schemaRef}
-                disabled={!schemas.length}
-                onChange={(event) => update(name, { schemaRef: event.target.value })}
-              >
-                {!schemas.includes(port.schemaRef) ? (
-                  <option value={port.schemaRef}>
-                    {port.schemaRef} ({t('editor.notDeclared')})
-                  </option>
-                ) : null}
-                {schemas.map((schema) => (
-                  <option key={schema}>{schema}</option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <p className="mt-2 mb-3 text-[11px] leading-relaxed text-secondary">
+            {port.description ||
+              t(direction === 'inputs' ? 'editor.inputPurposeHint' : 'editor.outputPurposeHint')}
+          </p>
           {direction === 'inputs' ? (
             <BindingEditor
               name={name}
@@ -462,62 +430,121 @@ export default function PortEditor({
               onChange={(bind) => update(name, { bind })}
             />
           ) : null}
-          {port.artifact && editable ? (
-            <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-              {t('editor.mediaType')}
-              <input
-                aria-label={t('editor.mediaType')}
-                defaultValue={port.artifact.mediaTypes.join(', ')}
-                key={port.artifact.mediaTypes.join()}
-                placeholder="text/plain"
-                onBlur={(event) => {
-                  const mediaTypes = event.target.value
-                    .split(',')
-                    .map((type) => type.trim())
-                    .filter(Boolean);
-                  if (mediaTypes.length && port.artifact)
-                    update(name, {
-                      artifact: { ...port.artifact, mediaTypes },
-                      ...(port.collect
-                        ? { collect: { ...port.collect, mediaType: mediaTypes[0] } }
-                        : {}),
-                    });
-                }}
-              />
-            </label>
-          ) : null}
-          {port.collect && editable ? (
-            <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-              {t('editor.collectFileFrom')}
-              <input
-                aria-label={t('editor.collectFileFrom')}
-                defaultValue={port.collect.path}
-                key={port.collect.path}
-                onBlur={(event) => {
-                  if (event.target.value.trim() && port.collect)
-                    update(name, { collect: { ...port.collect, path: event.target.value } });
-                }}
-              />
-            </label>
-          ) : null}
-          {port.artifact && direction === 'inputs' ? (
-            <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
-              {t('editor.mountPathOptional')}
-              <input
-                aria-label={t('editor.mountPathOptional')}
-                defaultValue={port.mount ?? ''}
-                key={port.mount ?? ''}
-                onBlur={(event) => {
-                  const next = { ...port };
-                  if (event.target.value) next.mount = event.target.value;
-                  else delete next.mount;
-                  onChange({ ...ports, [name]: next });
-                }}
-              />
-            </label>
-          ) : null}
           <details className="field-details border-t border-solid border-t-line pt-3 mx-0 my-4">
             <summary>{t('editor.schemaDetails')}</summary>
+            <p className="text-[11px] leading-relaxed text-muted mb-3">
+              {t('editor.portFormatHint')}
+            </p>
+            {editable ? (
+              <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+                {t('editor.typeOfName', { name })}
+                <select
+                  value={portDataType(port)}
+                  onChange={(event) => {
+                    const next = dataType(port, event.target.value);
+                    if (direction === 'inputs') {
+                      if (next.artifact && !port.artifact) {
+                        setError('Add a file input using Add input so its source can be selected.');
+                        return;
+                      }
+                      if (!next.artifact && port.artifact) next.bind = { value: seedValue(next) };
+                    }
+                    onChange({ ...ports, [name]: next });
+                  }}
+                >
+                  <option value="JSON">{t('editor.anyJson')}</option>
+                  {portDataType(port) === '$custom' ? (
+                    <option value="$custom">
+                      {t('editor.customSchema')} · {editorPortTypeLabel(port, t)}
+                    </option>
+                  ) : null}
+                  {['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'].map(
+                    (type) => (
+                      <option key={type} value={type}>
+                        {editorDataTypeLabel(type, t)}
+                      </option>
+                    ),
+                  )}
+                  {allowFiles ? <option value="file">{t('editor.file')}</option> : null}
+                  {schemas.length || port.schemaRef ? (
+                    <option value="reference">{t('editor.schemaAlias')}</option>
+                  ) : null}
+                </select>
+              </label>
+            ) : null}
+            {port.schemaRef && editable ? (
+              <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+                {t('editor.schemaAlias')}
+                <select
+                  value={port.schemaRef}
+                  disabled={!schemas.length}
+                  onChange={(event) => update(name, { schemaRef: event.target.value })}
+                >
+                  {!schemas.includes(port.schemaRef) ? (
+                    <option value={port.schemaRef}>
+                      {port.schemaRef} ({t('editor.notDeclared')})
+                    </option>
+                  ) : null}
+                  {schemas.map((schema) => (
+                    <option key={schema}>{schema}</option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {port.artifact && editable ? (
+              <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+                {t('editor.mediaType')}
+                <input
+                  aria-label={t('editor.mediaType')}
+                  defaultValue={port.artifact.mediaTypes.join(', ')}
+                  key={port.artifact.mediaTypes.join()}
+                  placeholder="text/plain"
+                  onBlur={(event) => {
+                    const mediaTypes = event.target.value
+                      .split(',')
+                      .map((type) => type.trim())
+                      .filter(Boolean);
+                    if (mediaTypes.length && port.artifact)
+                      update(name, {
+                        artifact: { ...port.artifact, mediaTypes },
+                        ...(port.collect
+                          ? { collect: { ...port.collect, mediaType: mediaTypes[0] } }
+                          : {}),
+                      });
+                  }}
+                />
+              </label>
+            ) : null}
+            {port.collect && editable ? (
+              <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+                {t('editor.collectFileFrom')}
+                <input
+                  aria-label={t('editor.collectFileFrom')}
+                  defaultValue={port.collect.path}
+                  key={port.collect.path}
+                  onBlur={(event) => {
+                    if (event.target.value.trim() && port.collect)
+                      update(name, { collect: { ...port.collect, path: event.target.value } });
+                  }}
+                />
+              </label>
+            ) : null}
+            {port.artifact && direction === 'inputs' ? (
+              <label className="field flex flex-col gap-2.5 text-muted text-[11px] leading-[1.5] mb-6">
+                {t('editor.mountPathOptional')}
+                <input
+                  aria-label={t('editor.mountPathOptional')}
+                  defaultValue={port.mount ?? ''}
+                  key={port.mount ?? ''}
+                  onBlur={(event) => {
+                    const next = { ...port };
+                    if (event.target.value) next.mount = event.target.value;
+                    else delete next.mount;
+                    onChange({ ...ports, [name]: next });
+                  }}
+                />
+              </label>
+            ) : null}
             {editable && !port.artifact && !port.schemaRef ? (
               <JsonField<DataSchema>
                 label={t('editor.schemaForName', { name })}
