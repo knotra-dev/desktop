@@ -152,6 +152,7 @@ export function WorkspaceSidebar({
       <div className="sidebar-bottom mt-auto pt-6">
         <button
           type="button"
+          data-tour="nav-settings"
           className={section === 'settings' ? 'active' : ''}
           onClick={() => navigate('settings')}
           title={t('resources.workspaceSettings')}
