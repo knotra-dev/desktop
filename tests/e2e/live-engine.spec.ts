@@ -140,7 +140,7 @@ test('real Ollama run publishes an artifact and replays history on a fresh clien
     await fresh.locator('.run-table-row').filter({ hasText: title }).click();
     await fresh.getByRole('button', { name: 'Timeline', exact: true }).click();
     await expect.poll(() => fresh.locator('.timeline-event').count()).toBeGreaterThan(4);
-    await expect(fresh.locator('.timeline')).toContainText('succeeded');
+    await expect(fresh.locator('.timeline')).toContainText('Pipeline completed');
   } finally {
     await freshContext.close();
   }

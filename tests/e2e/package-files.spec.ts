@@ -33,9 +33,13 @@ test('uploading a missing declared file preserves its declaration and restores a
   expect(parse(saved.source).spec.files.filter((path: string) => path === 'check.mjs')).toEqual([
     'check.mjs',
   ]);
-  expect(saved.files.filter((file: { path: string }) => file.path === 'check.mjs')).toEqual([
-    { path: 'check.mjs', content: Buffer.from(content).toString('base64') },
-  ]);
+  await expect
+    .poll(async () =>
+      (await activeWorkspace(page)).files.filter(
+        (file: { path: string }) => file.path === 'check.mjs',
+      ),
+    )
+    .toEqual([{ path: 'check.mjs', content: Buffer.from(content).toString('base64') }]);
 
   await upload.setInputFiles({
     name: 'check.mjs',
